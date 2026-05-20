@@ -1,4 +1,4 @@
-import type { AnswerValue, CareerProfile, CareerScores, CareerType, Question } from './types';
+import type { AnswerValue, CareerProfile, CareerScores, CareerType, ExperienceMission, Question, SeoulCareerActivity } from './types';
 
 export const careerTypes: CareerType[] = ['investigative', 'artistic', 'social'];
 
@@ -30,6 +30,12 @@ export const profiles: Record<CareerType, CareerProfile> = {
       '현상의 원인을 논리적으로 분석하고 복잡한 문제를 하나씩 풀어갈 때 깊은 흥미를 느끼는 유형입니다. 주변 사물을 보며 "왜 그럴까?"라는 질문을 자주 던지는 관찰력이 강해요.',
     guide:
       '정답을 외우는 활동보다 스스로 가설을 세우고 실험과 데이터로 확인하는 환경에서 강점이 잘 드러납니다.',
+    personality:
+      '차분하게 관찰하고 근거를 모아 판단하는 편입니다. 복잡한 문제를 만나도 쉽게 포기하지 않고, 자료를 비교하며 가장 타당한 답을 찾으려는 힘이 큽니다.',
+    recommendedJobs: ['AI 연구원', '데이터 분석가', '의사 또는 생명과학자', '로봇공학자', '소프트웨어 개발자'],
+    missionStory:
+      '별빛 실험실의 작은 문이 열렸어요. 호기심 나침반을 들고 원리의 숲을 지나 미래 기술의 성으로 향해 보세요.',
+    missionTasks: ['궁금한 현상 1가지를 관찰 일지에 적기', '자료를 찾아 원인 가설 2개 세우기', '작은 실험이나 코딩 결과물을 완성하기'],
     roadmapTitle: '미래를 여는 꼬마 과학자 로드맵',
     roadmapSummary: '과학 원리 체험부터 미래 기술, 코딩 캠프까지 이어지는 탐구형 성장 경로입니다.',
     roadmap: [
@@ -66,6 +72,12 @@ export const profiles: Record<CareerType, CareerProfile> = {
       '틀에 박힌 규칙보다 자유로운 환경에서 나만의 생각과 감정을 표현할 때 행복한 유형입니다. 독창적인 감각과 아름다움을 알아보는 눈을 지녔어요.',
     guide:
       '반복적인 일보다 새로운 변화가 있는 환경이 어울리며, 시각 예술, 음악, 미디어 콘텐츠로 세상과 소통할 때 빛을 발합니다.',
+    personality:
+      '감정과 상상을 섬세하게 붙잡아 자기만의 방식으로 표현하는 편입니다. 정해진 답보다 새로운 해석을 좋아하고, 분위기와 아름다움을 빠르게 알아차립니다.',
+    recommendedJobs: ['콘텐츠 크리에이터', '웹툰 작가', '영상 편집자', 'UX/UI 디자이너', '공연 또는 전시 기획자'],
+    missionStory:
+      '무지개 작업실에 반짝이는 붓이 놓였어요. 상상의 정원을 걸으며 나만의 작품 씨앗을 키워 보세요.',
+    missionTasks: ['하루 동안 떠오른 아이디어 3개 스케치하기', '사진, 글, 영상 중 하나로 짧은 작품 만들기', '작품에 제목을 붙이고 친구에게 소개하기'],
     roadmapTitle: '트렌디한 디지털 크리에이터 로드맵',
     roadmapSummary: '시각 예술 감상에서 미디어 제작, 작품 발표까지 이어지는 예술형 성장 경로입니다.',
     roadmap: [
@@ -102,6 +114,12 @@ export const profiles: Record<CareerType, CareerProfile> = {
       '주변 사람들의 마음에 공감하고 누군가를 도와주거나 가르쳐 줄 때 큰 보람을 느끼는 유형입니다. 친구들의 고민을 잘 들어주고 소통을 이끄는 따뜻한 에너지가 있어요.',
     guide:
       '혼자 일하는 환경보다 다양한 사람과 만나 긍정적인 영향을 전하고 공동체의 문제를 함께 해결하는 환경이 잘 맞습니다.',
+    personality:
+      '사람의 표정과 마음 변화를 잘 살피고 관계 속에서 에너지를 얻는 편입니다. 누군가를 돕거나 함께 문제를 해결할 때 책임감과 따뜻함이 자연스럽게 드러납니다.',
+    recommendedJobs: ['상담사', '교사', '간호사', '사회복지사', '청소년 지도사'],
+    missionStory:
+      '햇살 마을에 도움이 필요한 친구들이 기다리고 있어요. 다정한 마음 등불을 들고 함께 자라는 길을 밝혀 보세요.',
+    missionTasks: ['친구의 고민을 끝까지 듣고 공감 문장 적기', '작은 도움이나 봉사 활동 1가지 실천하기', '함께한 사람에게 고마운 점을 말해주기'],
     roadmapTitle: '마음을 치유하는 청소년 멘토, 리더 로드맵',
     roadmapSummary: '공감 리더십, 또래 상담, 지역사회 활동으로 이어지는 사회형 성장 경로입니다.',
     roadmap: [
@@ -126,6 +144,140 @@ export const profiles: Record<CareerType, CareerProfile> = {
     ],
   },
 };
+
+
+
+
+export const experienceMissions: ExperienceMission[] = [
+  {
+    id: 'exp-science-visit',
+    type: 'investigative',
+    title: '과학관 방문 인증',
+    activity: '서울시립과학관 방문 후 가장 인상 깊었던 전시 기록하기',
+    description: '과학 전시를 직접 보고 관찰한 내용을 바탕으로 탐구형 경험치를 얻습니다.',
+    proofType: 'gps',
+    xp: 14,
+    lat: 37.6428,
+    lng: 127.0773,
+  },
+  {
+    id: 'exp-coding-proof',
+    type: 'investigative',
+    title: '코딩 체험 결과 인증',
+    activity: '스크래치, 엔트리, 파이썬 중 하나로 만든 결과물 기록하기',
+    description: '작은 프로그램을 완성하고 파일명이나 링크를 남기면 탐구형 점수가 올라갑니다.',
+    proofType: 'photo',
+    xp: 16,
+  },
+  {
+    id: 'exp-artifact-photo',
+    type: 'artistic',
+    title: '창작물 사진 인증',
+    activity: '그림, 영상 썸네일, 디자인 시안 등 내가 만든 창작물 기록하기',
+    description: '창작 결과물을 남기고 표현 과정을 돌아보며 예술형 경험치를 얻습니다.',
+    proofType: 'photo',
+    xp: 15,
+  },
+  {
+    id: 'exp-design-qr',
+    type: 'artistic',
+    title: '디자인 전시 QR 인증',
+    activity: 'DDP 또는 전시 공간을 둘러본 뒤 현장 QR 코드를 입력하기',
+    description: '전시와 디자인 공간을 직접 경험한 기록을 통해 예술형 점수를 갱신합니다.',
+    proofType: 'qr',
+    xp: 13,
+    qrCode: 'ART-DDP-2026',
+  },
+  {
+    id: 'exp-interview-reflection',
+    type: 'social',
+    title: '직업인 인터뷰 소감 인증',
+    activity: '교사, 상담사, 청소년지도사 등 사람을 돕는 직업 인터뷰를 보고 소감 쓰기',
+    description: '직업인의 이야기를 듣고 나의 관심과 맞는 부분을 정리하면 사회형 경험치를 얻습니다.',
+    proofType: 'reflection',
+    xp: 12,
+  },
+  {
+    id: 'exp-volunteer-gps',
+    type: 'social',
+    title: '청소년 활동센터 방문 인증',
+    activity: '서울시립청소년활동진흥센터 또는 지역 청소년센터 활동 참여하기',
+    description: '사람들과 함께하는 활동을 실제 위치 기반으로 인증해 사회형 점수를 갱신합니다.',
+    proofType: 'gps',
+    xp: 15,
+    lat: 37.4957,
+    lng: 126.9171,
+  },
+];
+
+export const seoulCareerActivities: SeoulCareerActivity[] = [
+  {
+    id: 'science-museum-nowon',
+    district: '노원구',
+    title: '과학 전시 탐구 활동',
+    place: '서울시립과학관',
+    address: '서울 노원구 한글비석로 160',
+    info: '상설 과학 전시를 관람하며 자연, 기술, 실험 원리를 탐구하는 활동입니다. 탐구형 학생에게 잘 맞습니다.',
+    lat: 37.6428,
+    lng: 127.0773,
+    sourceUrl: 'https://science.seoul.go.kr/',
+  },
+  {
+    id: 'robot-ai-dobong',
+    district: '도봉구',
+    title: '로봇·인공지능 진로 체험',
+    place: '서울로봇인공지능과학관',
+    address: '서울 도봉구 마들로13길 56',
+    info: '로봇, 인공지능, 미래 기술 전시와 교육 프로그램을 통해 기술 분야 진로를 살펴보는 활동입니다.',
+    lat: 37.6552,
+    lng: 127.0502,
+    sourceUrl: 'https://seoulrobotai.org/',
+  },
+  {
+    id: 'media-yongsan',
+    district: '용산구',
+    title: '청소년 미디어 제작 체험',
+    place: '서울시립청소년미디어센터 스스로넷',
+    address: '서울 용산구 한강대로 255',
+    info: '영상, 사진, 라디오, 미디어 콘텐츠 제작 과정을 경험하며 예술형·미디어 분야 진로를 탐색합니다.',
+    lat: 37.5425,
+    lng: 126.973,
+    sourceUrl: 'https://www.ssro.net/',
+  },
+  {
+    id: 'design-ddp-jung',
+    district: '중구',
+    title: '디자인·전시 감상 활동',
+    place: 'DDP 디자인랩',
+    address: '서울 중구 을지로 281',
+    info: '디자인 전시와 창작 공간을 둘러보며 시각 디자인, 전시 기획, 창작 직무를 탐색하는 활동입니다.',
+    lat: 37.5665,
+    lng: 127.0092,
+    sourceUrl: 'https://www.ddp.or.kr/',
+  },
+  {
+    id: 'youth-volunteer-dongjak',
+    district: '동작구',
+    title: '청소년 활동·리더십 프로그램',
+    place: '서울시립청소년활동진흥센터',
+    address: '서울 동작구 여의대방로20길 33',
+    info: '청소년 활동, 봉사, 리더십 정보를 확인하고 사회형 진로와 연결되는 활동을 찾아볼 수 있습니다.',
+    lat: 37.4957,
+    lng: 126.9171,
+    sourceUrl: 'https://www.sy0404.or.kr/',
+  },
+  {
+    id: 'career-seoul-center',
+    district: '영등포구',
+    title: '진로직업체험지원센터 프로그램',
+    place: '자치구 진로직업체험지원센터 연계 활동',
+    address: '서울 영등포구 일대',
+    info: '서울 자치구별 진로직업체험지원센터에서 학교·지역 연계 진로 체험과 직업인 만남 프로그램을 확인할 수 있습니다.',
+    lat: 37.5264,
+    lng: 126.8962,
+    sourceUrl: 'https://www.career.go.kr/',
+  },
+];
 
 export const questions: Question[] = [
   { id: 'i1', type: 'investigative', text: '과학 잡지를 읽거나 새로운 기술 원리(AI, 로봇 등)를 알아내는 것이 재밌다.' },
