@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { answerOptions, careerTypes, experienceMissions, maxTypeScore, profiles, questions, seoulCareerActivities } from './data';
@@ -33,6 +33,14 @@ function getDiaryDateTime(dateText: string) {
 
   const parsedTime = Date.parse(dateText);
   return Number.isNaN(parsedTime) ? Number.MAX_SAFE_INTEGER : parsedTime;
+}
+
+function formatDiaryDate(year: string, month: string, date: string) {
+  if (!year || !month || !date) {
+    return '';
+  }
+
+  return `${year}-${month.padStart(2, '0')}-${date.padStart(2, '0')}`;
 }
 
 
@@ -176,12 +184,15 @@ export function SurveyApp() {
   const [diaryUnlocked, setDiaryUnlocked] = useState(false);
   const [diaryType, setDiaryType] = useState('');
   const [diaryGoal, setDiaryGoal] = useState('');
-  const [diaryDate, setDiaryDate] = useState('');
+  const [diaryYear, setDiaryYear] = useState('');
+  const [diaryMonth, setDiaryMonth] = useState('');
+  const [diaryDay, setDiaryDay] = useState('');
   const [diaryContent, setDiaryContent] = useState('');
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
   const [diaryMode, setDiaryMode] = useState<'list' | 'form' | 'detail'>('list');
   const [selectedDiaryEntryId, setSelectedDiaryEntryId] = useState<string | null>(null);
   const [showActivityMap, setShowActivityMap] = useState(false);
+  const [selectedMapActivityId, setSelectedMapActivityId] = useState<string | null>(null);
   const [experienceSubmissions, setExperienceSubmissions] = useState<Record<string, ExperienceSubmission>>({});
   const [selectedExperienceId, setSelectedExperienceId] = useState(experienceMissions[0]?.id ?? '');
   const [experienceProofText, setExperienceProofText] = useState('');
@@ -189,7 +200,13 @@ export function SurveyApp() {
   const [gpsVerifiedMissionId, setGpsVerifiedMissionId] = useState<string | null>(null);
   const [gpsStatus, setGpsStatus] = useState('');
   const [portfolioName, setPortfolioName] = useState('김OO');
+  const [portfolioDesiredCareer, setPortfolioDesiredCareer] = useState('');
   const [hasSurveyResult, setHasSurveyResult] = useState(false);
+  const [missionEntrySource, setMissionEntrySource] = useState<'home' | 'roadmap'>('roadmap');
+  const [experienceEntrySource, setExperienceEntrySource] = useState<'home' | 'roadmap'>('roadmap');
+  const [diaryFirstEntryBonusClaimed, setDiaryFirstEntryBonusClaimed] = useState(false);
+  const [pointPopupText, setPointPopupText] = useState('');
+  const pointPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentQuestion = questions[currentIndex];
   const tieBreakerQuestions = useMemo(() => getTieBreakerQuestions(tiedTypes), [tiedTypes]);
@@ -235,11 +252,36 @@ export function SurveyApp() {
   const unlockedMissionCount = Math.min(completedMissionCount + 1, puzzleMissions.length);
   const collectedPuzzleCount = Math.min(completedMissionCount + 1, 4);
   const allMissionsCompleted = completedMissionCount >= puzzleMissions.length;
+  const puzzlePoints = collectedPuzzleCount * 2;
+  const diaryBonusPoints = diaryFirstEntryBonusClaimed ? 4 : 0;
+  const growthPoints = puzzlePoints + diaryBonusPoints;
+  const totalCareerPoints = growthPoints + totalExperienceXp;
+  const diaryYears = useMemo(() => Array.from({ length: 16 }, (_, index) => String(2020 + index)), []);
+  const diaryMonths = useMemo(() => Array.from({ length: 12 }, (_, index) => String(index + 1)), []);
+  const diaryDays = useMemo(() => {
+    if (!diaryYear || !diaryMonth) {
+      return Array.from({ length: 31 }, (_, index) => String(index + 1));
+    }
+
+    const daysInMonth = new Date(Number(diaryYear), Number(diaryMonth), 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => String(index + 1));
+  }, [diaryMonth, diaryYear]);
+  const selectedDiaryDate = formatDiaryDate(diaryYear, diaryMonth, diaryDay);
+  const selectedMapActivity = seoulCareerActivities.find((activity) => activity.id === selectedMapActivityId);
+  const visibleMapActivities = selectedMapActivity ? [selectedMapActivity] : seoulCareerActivities;
   const sortedDiaryEntries = useMemo(
     () =>
       [...diaryEntries].sort((left, right) => {
-        const dateOrder = getDiaryDateTime(left.date) - getDiaryDateTime(right.date);
-        return dateOrder === 0 ? left.id.localeCompare(right.id) : dateOrder;
+        const dateOrder = getDiaryDateTime(right.date) - getDiaryDateTime(left.date);
+        return dateOrder === 0 ? right.id.localeCompare(left.id) : dateOrder;
+      }),
+    [diaryEntries],
+  );
+  const latestDiaryEntries = useMemo(
+    () =>
+      [...diaryEntries].sort((left, right) => {
+        const dateOrder = getDiaryDateTime(right.date) - getDiaryDateTime(left.date);
+        return dateOrder === 0 ? right.id.localeCompare(left.id) : dateOrder;
       }),
     [diaryEntries],
   );
@@ -304,6 +346,8 @@ export function SurveyApp() {
     setGpsVerifiedMissionId(null);
     setGpsStatus('');
     setHasSurveyResult(false);
+    setMissionEntrySource('roadmap');
+    setExperienceEntrySource('roadmap');
     setScreen('survey');
   };
 
@@ -370,6 +414,18 @@ export function SurveyApp() {
     }
   };
 
+  const showPointPopup = (points: number) => {
+    if (pointPopupTimerRef.current) {
+      clearTimeout(pointPopupTimerRef.current);
+    }
+
+    setPointPopupText(`${points}포인트를 획득했어요!`);
+    pointPopupTimerRef.current = setTimeout(() => {
+      setPointPopupText('');
+      pointPopupTimerRef.current = null;
+    }, 2000);
+  };
+
   const openMissionRecord = (index: number) => {
     setRecordingMissionIndex(index);
     setReflectionDraft(missionReflections[index] ?? '');
@@ -394,6 +450,7 @@ export function SurveyApp() {
     const nextCompletedCount = Math.min(completedMissionCount + 1, puzzleMissions.length);
     setCompletedMissionCount(nextCompletedCount);
     setSelectedMissionIndex(Math.min(index + 1, puzzleMissions.length - 1));
+    showPointPopup(2);
 
     if (nextCompletedCount >= puzzleMissions.length) {
       setDiaryType(resultProfile.title);
@@ -416,19 +473,21 @@ export function SurveyApp() {
   };
 
   const openDiaryForm = () => {
+    const today = new Date();
     setDiaryType(diaryType || resultProfile.title);
     setDiaryGoal('');
-    setDiaryDate('');
+    setDiaryYear(String(today.getFullYear()));
+    setDiaryMonth(String(today.getMonth() + 1));
+    setDiaryDay(String(today.getDate()));
     setDiaryContent('');
     setSelectedDiaryEntryId(null);
     setDiaryMode('form');
   };
 
   const saveDiaryEntry = () => {
-    const trimmedDate = diaryDate.trim();
     const trimmedContent = diaryContent.trim();
 
-    if (!trimmedDate || !trimmedContent) {
+    if (!selectedDiaryDate || !trimmedContent) {
       return;
     }
 
@@ -436,16 +495,28 @@ export function SurveyApp() {
       id: `${Date.now()}-${diaryEntries.length}`,
       type: diaryType.trim() || resultProfile.title,
       goal: diaryGoal.trim(),
-      date: trimmedDate,
+      date: selectedDiaryDate,
       content: trimmedContent,
     };
 
     setDiaryEntries([...diaryEntries, entry]);
     setDiaryType(resultProfile.title);
     setDiaryGoal('');
-    setDiaryDate('');
+    setDiaryYear('');
+    setDiaryMonth('');
+    setDiaryDay('');
     setDiaryContent('');
     setDiaryMode('list');
+
+    if (!diaryFirstEntryBonusClaimed) {
+      setDiaryFirstEntryBonusClaimed(true);
+      showPointPopup(4);
+    }
+  };
+
+  const openActivityDetailMap = (activityId: string) => {
+    setSelectedMapActivityId(activityId);
+    setShowActivityMap(true);
   };
 
   const openDiaryEntry = (entryId: string) => {
@@ -537,6 +608,7 @@ export function SurveyApp() {
       },
     });
     setGpsStatus(`${selectedExperienceMission.xp}XP 지급 완료! 진로 점수가 갱신되었습니다.`);
+    showPointPopup(selectedExperienceMission.xp);
   };
 
   const printParentReport = () => {
@@ -555,9 +627,28 @@ export function SurveyApp() {
     }
   };
 
+  useEffect(() => {
+    if (diaryDay && !diaryDays.includes(diaryDay)) {
+      setDiaryDay('');
+    }
+  }, [diaryDay, diaryDays]);
+
+  useEffect(() => {
+    return () => {
+      if (pointPopupTimerRef.current) {
+        clearTimeout(pointPopupTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
+      {pointPopupText ? (
+        <View style={styles.pointPopup}>
+          <Text style={styles.pointPopupText}>{pointPopupText}</Text>
+        </View>
+      ) : null}
       {screen === 'home' && (
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
@@ -587,6 +678,15 @@ export function SurveyApp() {
                       <Text style={styles.homeResultSubtitle}>{resultProfile.nickname}</Text>
                     </View>
                   </View>
+                </View>
+              )}
+              {hasSurveyResult && (
+                <View style={styles.homePointCard}>
+                  <Text style={styles.homePointLabel}>획득 포인트</Text>
+                  <Text style={styles.homePointValue}>{totalCareerPoints}점</Text>
+                  <Text style={styles.homePointText}>
+                    퍼즐 미션 {growthPoints}점 · 진로 미션 {totalExperienceXp}점
+                  </Text>
                 </View>
               )}
             </View>
@@ -644,7 +744,10 @@ export function SurveyApp() {
                   style={({ pressed }) => [styles.postSurveyShortcutButton, pressed && styles.pressed]}
                   android_ripple={{ color: '#1F2A4424' }}
                   accessibilityRole="button"
-                  onPress={() => setScreen('mission')}
+                  onPress={() => {
+                    setMissionEntrySource('home');
+                    setScreen('mission');
+                  }}
                 >
                   <Text style={styles.postSurveyShortcutIcon}>🧩</Text>
                   <Text style={styles.postSurveyShortcutLabel}>퍼즐 미션</Text>
@@ -653,7 +756,10 @@ export function SurveyApp() {
                   style={({ pressed }) => [styles.postSurveyShortcutButton, pressed && styles.pressed]}
                   android_ripple={{ color: '#1F2A4424' }}
                   accessibilityRole="button"
-                  onPress={() => setScreen('experience')}
+                  onPress={() => {
+                    setExperienceEntrySource('home');
+                    setScreen('experience');
+                  }}
                 >
                   <Text style={styles.postSurveyShortcutIcon}>⭐</Text>
                   <Text style={styles.postSurveyShortcutLabel}>진로 미션 인증</Text>
@@ -709,7 +815,7 @@ export function SurveyApp() {
             <Text style={styles.activityMapHomeIcon}>🗺️</Text>
             <View style={styles.activityMapHomeTextWrap}>
               <Text style={styles.activityMapHomeTitle}>서울 진로 활동 지도</Text>
-              <Text style={styles.activityMapHomeText}>서울시 구별 진로 활동을 지도와 목록으로 확인하기</Text>
+              <Text style={styles.activityMapHomeText}>서울시 안에서 찾아볼 수 있는 진로 활동을 목록과 상세 지도로 확인해보세요.</Text>
             </View>
           </Pressable>
 
@@ -767,6 +873,14 @@ export function SurveyApp() {
               value={portfolioName}
               onChangeText={setPortfolioName}
             />
+            <Text style={styles.diaryLabel}>희망 진로</Text>
+            <TextInput
+              style={styles.diaryInput}
+              placeholder="희망하는 진로를 입력하세요"
+              placeholderTextColor="#8A9AAF"
+              value={portfolioDesiredCareer}
+              onChangeText={setPortfolioDesiredCareer}
+            />
           </View>
 
           <View style={styles.portfolioSection}>
@@ -782,6 +896,10 @@ export function SurveyApp() {
             <View style={styles.portfolioProfileRow}>
               <Text style={styles.portfolioProfileLabel}>추천 진로</Text>
               <Text style={styles.portfolioProfileValue}>{resultProfile.recommendedJobs.slice(0, 3).join(', ')}</Text>
+            </View>
+            <View style={styles.portfolioProfileRow}>
+              <Text style={styles.portfolioProfileLabel}>희망 진로</Text>
+              <Text style={styles.portfolioProfileValue}>{portfolioDesiredCareer || '작성 전'}</Text>
             </View>
           </View>
 
@@ -834,7 +952,7 @@ export function SurveyApp() {
             {sortedDiaryEntries.length === 0 ? (
               <Text style={styles.portfolioEmptyText}>저장된 다이어리 페이지가 없습니다.</Text>
             ) : (
-              sortedDiaryEntries.slice(0, 5).map((entry) => (
+              latestDiaryEntries.slice(0, 3).map((entry) => (
                 <View key={entry.id} style={styles.portfolioListItem}>
                   <Text style={styles.portfolioListTitle}>{entry.date} · {entry.goal || '성장 기록'}</Text>
                   <Text style={styles.portfolioListText}>{entry.content}</Text>
@@ -1019,19 +1137,24 @@ export function SurveyApp() {
             <Text style={styles.activityIntroIcon}>🗺️</Text>
             <Text style={styles.activityIntroTitle}>서울 진로 활동 지도</Text>
             <Text style={styles.activityIntroText}>
-              서울시 안에서 찾아볼 수 있는 진로 활동을 구별 목록과 지도 핀으로 확인해 보세요.
+              서울시 안에서 찾아볼 수 있는 진로 활동을 목록과 상세 지도로 확인해보세요.
             </Text>
             <Pressable
               style={({ pressed }) => [styles.activityMapToggleButton, pressed && styles.pressed]}
               android_ripple={{ color: '#0000002E' }}
               accessibilityRole="button"
-              onPress={() => setShowActivityMap(!showActivityMap)}
+              onPress={() => {
+                if (!showActivityMap) {
+                  setSelectedMapActivityId(null);
+                }
+                setShowActivityMap(!showActivityMap);
+              }}
             >
               <Text style={styles.primaryButtonText}>{showActivityMap ? '지도 접기' : '한눈에 보기'}</Text>
             </Pressable>
           </View>
 
-          {showActivityMap && <KakaoActivityMap activities={seoulCareerActivities} />}
+          {showActivityMap && <KakaoActivityMap activities={visibleMapActivities} />}
 
           <View style={styles.activityList}>
             {seoulCareerActivities.map((activity) => (
@@ -1043,6 +1166,14 @@ export function SurveyApp() {
                 <Text style={styles.activityTitle}>{activity.title}</Text>
                 <Text style={styles.activityInfo}>{activity.info}</Text>
                 <Text style={styles.activityAddress}>{activity.address}</Text>
+                <Pressable
+                  style={({ pressed }) => [styles.activityDetailMapButton, pressed && styles.pressed]}
+                  android_ripple={{ color: '#0000002E' }}
+                  accessibilityRole="button"
+                  onPress={() => openActivityDetailMap(activity.id)}
+                >
+                  <Text style={styles.activityDetailMapButtonText}>지도 보기</Text>
+                </Pressable>
               </View>
             ))}
           </View>
@@ -1204,6 +1335,18 @@ export function SurveyApp() {
 
       {screen === 'result' && (
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+          <View style={styles.roadmapHeader}>
+            <Pressable
+              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+              android_ripple={{ color: '#1F2A4428' }}
+              accessibilityRole="button"
+              onPress={() => setScreen('home')}
+            >
+              <Text style={styles.backButtonText}>메인으로</Text>
+            </Pressable>
+            <Text style={[styles.roadmapType, { color: resultProfile.color }]}>검사 결과</Text>
+          </View>
+
           <View style={[styles.resultHero, { backgroundColor: resultProfile.softColor }]}>
             <Text style={styles.resultIcon}>{resultProfile.icon}</Text>
             <Text style={[styles.resultKicker, { color: resultProfile.color }]}>검사 결과</Text>
@@ -1276,14 +1419,6 @@ export function SurveyApp() {
           >
             <Text style={styles.primaryButtonText}>로드맵을 확인해보세요!</Text>
           </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}
-            android_ripple={{ color: '#1F2A4424' }}
-            accessibilityRole="button"
-            onPress={() => setScreen('home')}
-          >
-            <Text style={styles.textButtonLabel}>메인으로</Text>
-          </Pressable>
         </ScrollView>
       )}
 
@@ -1294,9 +1429,9 @@ export function SurveyApp() {
               style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
               android_ripple={{ color: '#1F2A4428' }}
               accessibilityRole="button"
-              onPress={() => setScreen('roadmap')}
+              onPress={() => setScreen(experienceEntrySource === 'home' ? 'home' : 'roadmap')}
             >
-              <Text style={styles.backButtonText}>로드맵으로</Text>
+              <Text style={styles.backButtonText}>{experienceEntrySource === 'home' ? '메인으로' : '로드맵으로'}</Text>
             </Pressable>
             <Text style={[styles.roadmapType, { color: resultProfile.color }]}>미션 인증</Text>
           </View>
@@ -1439,14 +1574,16 @@ export function SurveyApp() {
             </Pressable>
           </View>
 
-          <Pressable
-            style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}
-            android_ripple={{ color: '#1F2A4424' }}
-            accessibilityRole="button"
-            onPress={() => setScreen('home')}
-          >
-            <Text style={styles.textButtonLabel}>메인으로</Text>
-          </Pressable>
+          {experienceEntrySource !== 'home' && (
+            <Pressable
+              style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}
+              android_ripple={{ color: '#1F2A4424' }}
+              accessibilityRole="button"
+              onPress={() => setScreen('home')}
+            >
+              <Text style={styles.textButtonLabel}>메인으로</Text>
+            </Pressable>
+          )}
         </ScrollView>
       )}
 
@@ -1494,7 +1631,10 @@ export function SurveyApp() {
             ]}
             android_ripple={{ color: '#0000002E' }}
             accessibilityRole="button"
-            onPress={() => setScreen('experience')}
+            onPress={() => {
+              setExperienceEntrySource('roadmap');
+              setScreen('experience');
+            }}
           >
             <Text style={styles.primaryButtonText}>진로 미션 인증하기</Text>
           </Pressable>
@@ -1506,7 +1646,10 @@ export function SurveyApp() {
             ]}
             android_ripple={{ color: '#0000002E' }}
             accessibilityRole="button"
-            onPress={() => setScreen('mission')}
+            onPress={() => {
+              setMissionEntrySource('roadmap');
+              setScreen('mission');
+            }}
           >
             <Text style={styles.primaryButtonText}>퍼즐 미션 시작하기</Text>
           </Pressable>
@@ -1528,9 +1671,9 @@ export function SurveyApp() {
               style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
               android_ripple={{ color: '#1F2A4428' }}
               accessibilityRole="button"
-              onPress={() => setScreen('roadmap')}
+              onPress={() => setScreen(missionEntrySource === 'home' ? 'home' : 'roadmap')}
             >
-              <Text style={styles.backButtonText}>로드맵으로</Text>
+              <Text style={styles.backButtonText}>{missionEntrySource === 'home' ? '메인으로' : '로드맵으로'}</Text>
             </Pressable>
             <Text style={[styles.roadmapType, { color: resultProfile.color }]}>퍼즐 미션</Text>
           </View>
@@ -1538,13 +1681,17 @@ export function SurveyApp() {
           <View style={[styles.fairyRoadmap, { borderColor: resultProfile.color }]}>
             <View style={styles.fairySky}>
               <Text style={styles.fairyCloud}>퍼즐 {collectedPuzzleCount}/4</Text>
-              <Text style={styles.fairyStar}>{allMissionsCompleted ? '이미지 완성' : '미션 진행 중'}</Text>
+              <Text style={styles.fairyStar}>{growthPoints}포인트</Text>
             </View>
             <Text style={styles.fairyIcon}>{resultProfile.icon}</Text>
             <Text style={styles.fairyTitle}>{resultProfile.nickname}의 성장 모험</Text>
             <Text style={styles.fairyStory}>{resultProfile.missionStory}</Text>
             <Text style={styles.puzzleGuideText}>검사를 완료하고 퍼즐 1개를 획득했어요!</Text>
+            <Text style={styles.puzzleGuideText}>퍼즐을 1개 획득할 때마다 2포인트가 지급돼요.</Text>
             <Text style={styles.puzzleGuideText}>나머지 퍼즐을 모두 맞추고 성장 다이어리를 획득해보세요!</Text>
+            <View style={styles.pointSummaryBox}>
+              <Text style={styles.pointSummaryText}>퍼즐 포인트 {puzzlePoints}점 · 다이어리 보너스 {diaryBonusPoints}점</Text>
+            </View>
 
             <View style={styles.puzzleBoard}>
               {[0, 1, 2, 3].map((piece) => {
@@ -1569,7 +1716,7 @@ export function SurveyApp() {
               <View style={styles.completedGiftBox}>
                 <Text style={styles.completedGiftTitle}>성향별 이미지가 완성됐어요!</Text>
                 <Text style={styles.completedGiftText}>
-                  모든 퍼즐 조각을 모았습니다. 성장 다이어리를 획득하면 스스로 찾은 활동도 기록할 수 있어요.
+                  모든 퍼즐 조각을 모았습니다. 성장 다이어리를 획득하면 스스로 찾은 활동도 기록할 수 있어요. 처음 다이어리를 작성하면 4포인트가 추가 지급됩니다.
                 </Text>
                 <Pressable
                   style={({ pressed }) => [styles.diaryGiftButton, pressed && styles.pressed]}
@@ -1613,6 +1760,7 @@ export function SurveyApp() {
                       <Text style={styles.missionDetailText}>{item.place}</Text>
                       <Text style={styles.missionDetailLabel}>작은 성장 과제</Text>
                       <Text style={styles.missionDetailText}>{item.quest}</Text>
+                      <Text style={styles.missionPointNotice}>미션 성공 시 퍼즐 1개와 2포인트 지급</Text>
 
                       {recordingMissionIndex === index ? (
                         <View style={styles.recordPanel}>
@@ -1690,14 +1838,16 @@ export function SurveyApp() {
             })}
           </View>
 
-          <Pressable
-            style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}
-            android_ripple={{ color: '#1F2A4424' }}
-            accessibilityRole="button"
-            onPress={() => setScreen('home')}
-          >
-            <Text style={styles.textButtonLabel}>메인으로</Text>
-          </Pressable>
+          {missionEntrySource !== 'home' && (
+            <Pressable
+              style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}
+              android_ripple={{ color: '#1F2A4424' }}
+              accessibilityRole="button"
+              onPress={() => setScreen('home')}
+            >
+              <Text style={styles.textButtonLabel}>메인으로</Text>
+            </Pressable>
+          )}
         </ScrollView>
       )}
 
@@ -1723,7 +1873,7 @@ export function SurveyApp() {
               <View style={styles.diaryTopLine}>
                 <View style={styles.diaryTitleWrap}>
                   <Text style={styles.diaryTitle}>나의 성장 다이어리</Text>
-                  <Text style={styles.diarySubtitle}>저장한 활동 기록을 날짜 순으로 모아볼 수 있어요.</Text>
+                  <Text style={styles.diarySubtitle}>저장한 활동 기록을 최신순으로 모아볼 수 있어요.</Text>
                 </View>
                 <Text style={[styles.diaryCountBadge, { color: resultProfile.color }]}>{diaryEntries.length}개</Text>
               </View>
@@ -1783,20 +1933,72 @@ export function SurveyApp() {
               <Text style={styles.diaryLabel}>성장 목표</Text>
               <TextInput
                 style={styles.diaryInput}
-                placeholder="이번 달 성장 목표를 적어보세요."
+                placeholder="성장 목표를 적어보세요."
                 placeholderTextColor="#8A9AAF"
                 value={diaryGoal}
                 onChangeText={setDiaryGoal}
               />
 
               <Text style={styles.diaryLabel}>활동 날짜</Text>
-              <TextInput
-                style={styles.diaryInput}
-                placeholder="예: 2026-05-20"
-                placeholderTextColor="#8A9AAF"
-                value={diaryDate}
-                onChangeText={setDiaryDate}
-              />
+              <View style={styles.datePickerGroup}>
+                <Text style={styles.datePickerLabel}>연도 선택</Text>
+                <View style={styles.dateOptionRow}>
+                  {diaryYears.map((year) => (
+                    <Pressable
+                      key={year}
+                      style={({ pressed }) => [
+                        styles.dateOptionButton,
+                        diaryYear === year && { backgroundColor: resultProfile.color, borderColor: resultProfile.color },
+                        pressed && styles.pressed,
+                      ]}
+                      android_ripple={{ color: '#1F2A4424' }}
+                      accessibilityRole="button"
+                      onPress={() => setDiaryYear(year)}
+                    >
+                      <Text style={[styles.dateOptionText, diaryYear === year && styles.dateOptionTextSelected]}>{year}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={styles.datePickerLabel}>월 선택</Text>
+                <View style={styles.dateOptionRow}>
+                  {diaryMonths.map((month) => (
+                    <Pressable
+                      key={month}
+                      style={({ pressed }) => [
+                        styles.dateOptionButton,
+                        diaryMonth === month && { backgroundColor: resultProfile.color, borderColor: resultProfile.color },
+                        pressed && styles.pressed,
+                      ]}
+                      android_ripple={{ color: '#1F2A4424' }}
+                      accessibilityRole="button"
+                      onPress={() => setDiaryMonth(month)}
+                    >
+                      <Text style={[styles.dateOptionText, diaryMonth === month && styles.dateOptionTextSelected]}>{month}월</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={styles.datePickerLabel}>일 선택</Text>
+                <View style={styles.dateOptionRow}>
+                  {diaryDays.map((day) => (
+                    <Pressable
+                      key={day}
+                      style={({ pressed }) => [
+                        styles.dateOptionButton,
+                        diaryDay === day && { backgroundColor: resultProfile.color, borderColor: resultProfile.color },
+                        pressed && styles.pressed,
+                      ]}
+                      android_ripple={{ color: '#1F2A4424' }}
+                      accessibilityRole="button"
+                      onPress={() => setDiaryDay(day)}
+                    >
+                      <Text style={[styles.dateOptionText, diaryDay === day && styles.dateOptionTextSelected]}>{day}일</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={styles.selectedDateText}>
+                  선택한 날짜: {selectedDiaryDate || '연도, 월, 일을 선택하세요.'}
+                </Text>
+              </View>
 
               <Text style={styles.diaryLabel}>활동 내용</Text>
               <TextInput
@@ -1822,12 +2024,12 @@ export function SurveyApp() {
                   style={({ pressed }) => [
                     styles.secondaryButton,
                     { backgroundColor: resultProfile.color },
-                    (!diaryDate.trim() || !diaryContent.trim()) && styles.disabledButton,
-                    pressed && diaryDate.trim() && diaryContent.trim() && styles.pressed,
+                    (!selectedDiaryDate || !diaryContent.trim()) && styles.disabledButton,
+                    pressed && selectedDiaryDate && diaryContent.trim() && styles.pressed,
                   ]}
                   android_ripple={{ color: '#0000002E' }}
                   accessibilityRole="button"
-                  disabled={!diaryDate.trim() || !diaryContent.trim()}
+                  disabled={!selectedDiaryDate || !diaryContent.trim()}
                   onPress={saveDiaryEntry}
                 >
                   <Text style={styles.recordSaveText}>저장하기</Text>
