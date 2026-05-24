@@ -61,6 +61,7 @@ type SavedActivityState = {
   selectedGameMissionId: string;
   gameView: 'main' | 'map' | 'mission';
   completedGameMissions: Record<string, boolean>;
+  gameMissionSubmissions: Record<string, GameMissionSubmission>;
   spentRewardPoints: number;
   rewardEntries: Record<string, boolean>;
 };
@@ -74,16 +75,13 @@ type GameVillageId = 'research' | 'creation' | 'communication' | 'care' | 'field
 
 type GameMission = {
   id: string;
+  step: 1 | 2 | 3;
   title: string;
-  kind: 'game' | 'real';
+  kind: 'career';
   prompt: string;
-  choices: string[];
-  answerIndex: number;
-  reward: {
-    stat: string;
-    exp: number;
-    points: number;
-  };
+  checklist: string[];
+  proofHint: string;
+  stat: string;
 };
 
 type GameVillage = {
@@ -107,9 +105,19 @@ type GameVillage = {
 
 type RewardItem = {
   id: string;
+  category: 'building' | 'hero' | 'gift';
   title: string;
   description: string;
   cost: number;
+  confirmationText: string;
+};
+
+type GameMissionSubmission = {
+  missionId: string;
+  photoText: string;
+  reflection: string;
+  earnedPoints: number;
+  completedAt: string;
 };
 
 type ActivityAiType = CareerType | 'auto';
@@ -162,30 +170,33 @@ const gameVillages: GameVillage[] = [
     missions: [
       {
         id: 'research-cause',
-        title: '원인 찾기 퀴즈',
-        kind: 'game',
-        prompt: '식물이 한쪽으로 기울어 자라고 있어요. 가장 먼저 확인할 것은 무엇일까요?',
-        choices: ['햇빛이 드는 방향', '화분 색깔', '친구의 취향'],
-        answerIndex: 0,
-        reward: { stat: '탐구력 +10', exp: 20, points: 20 },
+        step: 1,
+        title: '궁금한 현상 관찰',
+        kind: 'career',
+        prompt: '주변에서 궁금했던 현상 하나를 관찰하고 사진 설명을 남겨보세요.',
+        checklist: ['관찰할 대상을 정했나요?', '운영 시간이나 장소를 확인했나요?', '사진 설명을 적을 준비가 되었나요?'],
+        proofHint: '예: 과학관 전시 사진, 식물 관찰 사진, 실험 준비물 사진 설명',
+        stat: '미션 에너지 1/3',
       },
       {
         id: 'research-data',
-        title: '자료 해석 미션',
-        kind: 'game',
-        prompt: '실험 결과를 비교할 때 가장 공정한 방법은 무엇일까요?',
-        choices: ['마음에 드는 결과만 보기', '조건을 같게 두고 기록 비교하기', '가장 큰 숫자만 고르기'],
-        answerIndex: 1,
-        reward: { stat: '분석력 +12', exp: 25, points: 25 },
+        step: 2,
+        title: '원인 추측과 자료 찾기',
+        kind: 'career',
+        prompt: '관찰한 현상의 원인을 한 가지 추측하고 관련 자료를 찾아 한 줄로 정리하세요.',
+        checklist: ['추측을 한 문장으로 썼나요?', '자료 출처나 검색어를 남겼나요?', '보호자와 확인할 내용이 있나요?'],
+        proofHint: '예: 검색한 자료 제목, 책 이름, 전시 설명문 요약',
+        stat: '미션 에너지 2/3',
       },
       {
         id: 'research-real',
-        title: '과학관 활동 인증',
-        kind: 'real',
-        prompt: '서울 과학관이나 학교 과학실에서 본 전시/실험을 한 줄로 기록했다면 완료하세요.',
-        choices: ['활동 기록을 남겼어요', '아직 하지 않았어요', '다음에 할래요'],
-        answerIndex: 0,
-        reward: { stat: '현장탐구 +30', exp: 60, points: 80 },
+        step: 3,
+        title: '작은 실험 결과 기록',
+        kind: 'career',
+        prompt: '작은 실험, 코딩 결과, 관찰 결과 중 하나를 완성하고 결과를 기록하세요.',
+        checklist: ['결과물을 완성했나요?', '실패하거나 바꾼 점도 적었나요?', '다음에 더 해보고 싶은 질문을 남겼나요?'],
+        proofHint: '예: 실험 결과 사진 설명, 스크래치 작품명, 관찰표 파일명',
+        stat: '미션 에너지 3/3',
       },
     ],
   },
@@ -205,30 +216,33 @@ const gameVillages: GameVillage[] = [
     missions: [
       {
         id: 'creation-color',
-        title: '색 조합 선택',
-        kind: 'game',
-        prompt: '친환경 캠페인 포스터를 만든다면 메시지와 가장 어울리는 색 조합은?',
-        choices: ['초록과 흰색', '회색만 사용', '아무 색이나 무작위'],
-        answerIndex: 0,
-        reward: { stat: '표현력 +10', exp: 20, points: 20 },
+        step: 1,
+        title: '아이디어 스케치',
+        kind: 'career',
+        prompt: '나만의 캐릭터, 그림, 카드뉴스 아이디어 중 하나를 스케치하고 설명하세요.',
+        checklist: ['표현할 주제를 골랐나요?', '사용할 도구를 준비했나요?', '작품 사진 설명을 남길 수 있나요?'],
+        proofHint: '예: 캐릭터 스케치 사진 설명, 포스터 초안 파일명',
+        stat: '미션 에너지 1/3',
       },
       {
         id: 'creation-user',
-        title: '사용자 생각하기',
-        kind: 'game',
-        prompt: '앱 버튼을 디자인할 때 가장 먼저 고려할 점은 무엇일까요?',
-        choices: ['내가 좋아하는 모양', '사용자가 쉽게 알아보는지', '무조건 작게 만들기'],
-        answerIndex: 1,
-        reward: { stat: '디자인감 +12', exp: 25, points: 25 },
+        step: 2,
+        title: '작품 제목과 의도',
+        kind: 'career',
+        prompt: '작품에 제목을 붙이고 왜 그렇게 표현했는지 한 줄로 설명하세요.',
+        checklist: ['작품 제목을 정했나요?', '색이나 모양을 고른 이유를 적었나요?', '보는 사람이 이해할 수 있게 설명했나요?'],
+        proofHint: '예: 작품 제목, 사용한 색, 전달하고 싶은 메시지',
+        stat: '미션 에너지 2/3',
       },
       {
         id: 'creation-real',
-        title: '나만의 작품 인증',
-        kind: 'real',
-        prompt: '그림, 영상, 카드뉴스, 캐릭터 중 하나를 만들고 제목을 붙였다면 완료하세요.',
-        choices: ['작품 제목을 정했어요', '아직 만들지 않았어요', '제목은 필요 없어요'],
-        answerIndex: 0,
-        reward: { stat: '창작경험 +30', exp: 60, points: 80 },
+        step: 3,
+        title: '작품 소개',
+        kind: 'career',
+        prompt: '친구나 가족에게 작품을 소개하고 들은 반응 또는 느낀 점을 남기세요.',
+        checklist: ['작품을 완성했나요?', '누군가에게 소개했나요?', '피드백이나 느낀 점을 적었나요?'],
+        proofHint: '예: 작품 사진 설명, 소개한 사람, 받은 피드백',
+        stat: '미션 에너지 3/3',
       },
     ],
   },
@@ -248,30 +262,33 @@ const gameVillages: GameVillage[] = [
     missions: [
       {
         id: 'communication-fair',
-        title: '갈등 조정 퀴즈',
-        kind: 'game',
-        prompt: '친구 둘이 서로 자기 말만 맞다고 해요. 가장 공정한 선택은?',
-        choices: ['친한 친구 편 들기', '양쪽 이야기를 모두 듣기', '그냥 자리 피하기'],
-        answerIndex: 1,
-        reward: { stat: '소통력 +10', exp: 20, points: 20 },
+        step: 1,
+        title: '경청 미션',
+        kind: 'career',
+        prompt: '친구나 가족의 이야기를 끝까지 듣고 핵심 내용을 한 줄로 정리하세요.',
+        checklist: ['대화할 사람을 정했나요?', '중간에 끊지 않고 들었나요?', '상대가 불편하지 않게 허락을 구했나요?'],
+        proofHint: '예: 대화 주제, 들은 내용 요약, 배운 점',
+        stat: '미션 에너지 1/3',
       },
       {
         id: 'communication-word',
-        title: '공감 문장 고르기',
-        kind: 'game',
-        prompt: '속상한 친구에게 먼저 건넬 말로 가장 알맞은 것은?',
-        choices: ['왜 그렇게 했어?', '네 마음이 많이 답답했겠다', '그건 네 잘못이야'],
-        answerIndex: 1,
-        reward: { stat: '공감력 +12', exp: 25, points: 25 },
+        step: 2,
+        title: '공감 문장 만들기',
+        kind: 'career',
+        prompt: '상대의 마음을 존중하는 공감 문장 2개를 만들어보세요.',
+        checklist: ['상대의 감정을 먼저 적었나요?', '충고보다 공감을 먼저 했나요?', '상처가 될 표현을 뺐나요?'],
+        proofHint: '예: 네 마음이 답답했겠다 / 같이 방법을 찾아보자',
+        stat: '미션 에너지 2/3',
       },
       {
         id: 'communication-real',
-        title: '인터뷰 활동 인증',
-        kind: 'real',
-        prompt: '선생님, 상담사, 친구 중 한 명과 진로 이야기를 나누고 느낀 점을 적었다면 완료하세요.',
-        choices: ['느낀 점을 적었어요', '대화하지 않았어요', '기억나지 않아요'],
-        answerIndex: 0,
-        reward: { stat: '관계경험 +30', exp: 60, points: 80 },
+        step: 3,
+        title: '진로 인터뷰 기록',
+        kind: 'career',
+        prompt: '선생님, 상담사, 가족, 친구 중 한 명과 진로 이야기를 나누고 느낀 점을 적으세요.',
+        checklist: ['질문 1개 이상을 준비했나요?', '대화 내용을 짧게 기록했나요?', '내 진로와 연결되는 점을 찾았나요?'],
+        proofHint: '예: 인터뷰 질문, 인상 깊은 답변, 새로 알게 된 점',
+        stat: '미션 에너지 3/3',
       },
     ],
   },
@@ -291,30 +308,33 @@ const gameVillages: GameVillage[] = [
     missions: [
       {
         id: 'care-first',
-        title: '응급 상황 판단',
-        kind: 'game',
-        prompt: '친구가 운동장에서 넘어져 아파해요. 가장 먼저 할 일은?',
-        choices: ['상태를 확인하고 선생님께 알리기', '사진 찍기', '혼자 두기'],
-        answerIndex: 0,
-        reward: { stat: '돌봄력 +10', exp: 20, points: 20 },
+        step: 1,
+        title: '건강 습관 정하기',
+        kind: 'career',
+        prompt: '손 씻기, 수면, 마음 건강 중 하나를 골라 실천 목표를 정하세요.',
+        checklist: ['실천할 건강 습관을 골랐나요?', '오늘 할 수 있는 작은 행동인가요?', '준비물이 필요한지 확인했나요?'],
+        proofHint: '예: 오늘의 건강 목표, 실천 전 준비 사진 설명',
+        stat: '미션 에너지 1/3',
       },
       {
         id: 'care-listen',
-        title: '안심 대화',
-        kind: 'game',
-        prompt: '불안해하는 친구에게 알맞은 태도는?',
-        choices: ['빨리 잊으라고 말하기', '차분히 듣고 도움을 연결하기', '장난으로 넘기기'],
-        answerIndex: 1,
-        reward: { stat: '배려심 +12', exp: 25, points: 25 },
+        step: 2,
+        title: '돌봄 실천',
+        kind: 'career',
+        prompt: '정한 건강 습관을 직접 실천하고 어떤 점이 좋았는지 적으세요.',
+        checklist: ['실천 시간을 정했나요?', '무리하지 않는 방법인가요?', '도움이 필요한 사람에게 알려줄 수 있나요?'],
+        proofHint: '예: 손 씻기 캠페인 문구, 수면 기록, 마음 건강 메모',
+        stat: '미션 에너지 2/3',
       },
       {
         id: 'care-real',
-        title: '건강 캠페인 인증',
-        kind: 'real',
-        prompt: '손 씻기, 수면, 마음 건강 중 하나를 주제로 작은 캠페인 문구를 만들었다면 완료하세요.',
-        choices: ['캠페인 문구를 만들었어요', '아직 하지 않았어요', '관심 없어요'],
-        answerIndex: 0,
-        reward: { stat: '건강실천 +30', exp: 60, points: 80 },
+        step: 3,
+        title: '건강 캠페인 문구',
+        kind: 'career',
+        prompt: '친구들에게 알려주고 싶은 건강 캠페인 문구를 만들고 기록하세요.',
+        checklist: ['누구에게 필요한 문구인지 생각했나요?', '짧고 기억하기 쉽게 썼나요?', '실천을 응원하는 표현인가요?'],
+        proofHint: '예: 캠페인 문구 사진 설명, 포스터 초안, 발표 내용',
+        stat: '미션 에너지 3/3',
       },
     ],
   },
@@ -334,30 +354,33 @@ const gameVillages: GameVillage[] = [
     missions: [
       {
         id: 'field-exit',
-        title: '대피 경로 찾기',
-        kind: 'game',
-        prompt: '건물에 들어갔을 때 안전을 위해 먼저 확인하면 좋은 것은?',
-        choices: ['비상구 위치', '가장 예쁜 벽', '매점 위치만'],
-        answerIndex: 0,
-        reward: { stat: '현장력 +10', exp: 20, points: 20 },
+        step: 1,
+        title: '안전 표지 찾기',
+        kind: 'career',
+        prompt: '학교나 집 주변에서 안전 표지, 비상구, 소화기 중 하나를 찾아 기록하세요.',
+        checklist: ['확인할 장소가 안전한가요?', '보호자나 선생님께 알렸나요?', '표지의 의미를 이해했나요?'],
+        proofHint: '예: 비상구 표지 사진 설명, 소화기 위치, 안전 안내문',
+        stat: '미션 에너지 1/3',
       },
       {
         id: 'field-team',
-        title: '팀 역할 나누기',
-        kind: 'game',
-        prompt: '현장 프로젝트에서 역할을 나눌 때 좋은 방법은?',
-        choices: ['한 사람이 전부 하기', '강점과 상황에 맞게 나누기', '아무도 정하지 않기'],
-        answerIndex: 1,
-        reward: { stat: '실행력 +12', exp: 25, points: 25 },
+        step: 2,
+        title: '현장 역할 나누기',
+        kind: 'career',
+        prompt: '작은 팀 활동에서 필요한 역할을 나누고 내가 맡을 역할을 적으세요.',
+        checklist: ['목표를 먼저 정했나요?', '역할을 공평하게 나눴나요?', '내가 맡은 일을 끝낼 수 있나요?'],
+        proofHint: '예: 역할표 사진 설명, 내가 맡은 역할, 팀 활동 기록',
+        stat: '미션 에너지 2/3',
       },
       {
         id: 'field-real',
-        title: '안전 점검 인증',
-        kind: 'real',
-        prompt: '집이나 학교에서 비상구, 소화기, 안전 표지 중 하나를 확인했다면 완료하세요.',
-        choices: ['안전 위치를 확인했어요', '아직 확인하지 않았어요', '필요 없어요'],
-        answerIndex: 0,
-        reward: { stat: '안전경험 +30', exp: 60, points: 80 },
+        step: 3,
+        title: '안전 수칙 카드',
+        kind: 'career',
+        prompt: '친구들에게 알려줄 안전 수칙 카드 1장을 만들고 설명하세요.',
+        checklist: ['가장 중요한 수칙 1개를 골랐나요?', '그림이나 짧은 문구로 표현했나요?', '위험 행동을 피하는 방법을 넣었나요?'],
+        proofHint: '예: 안전 카드 사진 설명, 카드 제목, 알려주고 싶은 이유',
+        stat: '미션 에너지 3/3',
       },
     ],
   },
@@ -365,28 +388,52 @@ const gameVillages: GameVillage[] = [
 
 const gameRewards: RewardItem[] = [
   {
-    id: 'science-ticket',
-    title: '서울 과학관 체험권 추첨',
-    description: '과학 전시와 실험 프로그램 체험권 응모',
-    cost: 1000,
+    id: 'dream-castle',
+    category: 'building',
+    title: '내 건물 상점: 작은 성',
+    description: '드림월드 내 구역에 작은 성을 짓는 꾸미기 보상',
+    cost: 600,
+    confirmationText: '내 구역에 작은 성이 세워졌어요!',
   },
   {
-    id: 'culture-gift',
-    title: '문화상품권 응모',
-    description: '도서, 전시, 공연 관람에 사용할 수 있는 상품권',
-    cost: 700,
+    id: 'dream-restaurant',
+    category: 'building',
+    title: '내 건물 상점: 레스토랑',
+    description: '친구들이 둘러볼 수 있는 레스토랑 건물을 추가합니다.',
+    cost: 450,
+    confirmationText: '드림월드 레스토랑 공사가 완료되었어요!',
   },
   {
-    id: 'learning-kit',
-    title: '진로 체험키트 응모',
-    description: '탐구, 창작, 소통 활동을 집에서 해볼 수 있는 키트',
-    cost: 500,
+    id: 'animal-food',
+    category: 'hero',
+    title: '리얼 히어로: 보호소 사료 10g',
+    description: '유기동물 보호소에 사료 10g을 보낸 것으로 기록하는 사회공헌 보상',
+    cost: 100,
+    confirmationText: 'OO 가디언 덕분에 보호소 친구들이 오늘 맛있는 밥을 먹었어요!',
   },
   {
-    id: 'school-supplies',
-    title: '학용품 세트 응모',
-    description: '활동 기록에 필요한 노트와 필기구 세트',
+    id: 'bee-support',
+    category: 'hero',
+    title: '리얼 히어로: 꿀벌 살리기',
+    description: '우리 지역 꿀벌 살리기 후원에 참여한 것으로 기록합니다.',
+    cost: 100,
+    confirmationText: '드림월드 꽃밭과 현실의 꿀벌을 함께 지켰어요!',
+  },
+  {
+    id: 'guardian-badge',
+    category: 'gift',
+    title: '리얼 기프트: 가디언 배지 교환권',
+    description: '기관 방문 시 안내 데스크에서 보여줄 수 있는 교환권 코드',
     cost: 300,
+    confirmationText: '교환권 코드 DG-BADGE-2026이 발급되었어요.',
+  },
+  {
+    id: 'experience-sticker',
+    category: 'gift',
+    title: '리얼 기프트: 체험 스티커 교환권',
+    description: '오프라인 체험 활동에서 사용할 수 있는 발표용 교환권',
+    cost: 250,
+    confirmationText: '교환권 코드 DG-STICKER-2026이 발급되었어요.',
   },
 ];
 
@@ -748,6 +795,10 @@ export function SurveyApp() {
   const [selectedGameMissionId, setSelectedGameMissionId] = useState(gameVillages[0].missions[0].id);
   const [gameView, setGameView] = useState<'main' | 'map' | 'mission'>('main');
   const [completedGameMissions, setCompletedGameMissions] = useState<Record<string, boolean>>({});
+  const [gameMissionSubmissions, setGameMissionSubmissions] = useState<Record<string, GameMissionSubmission>>({});
+  const [gameProofText, setGameProofText] = useState('');
+  const [gameReflectionText, setGameReflectionText] = useState('');
+  const [selectedStoreCategory, setSelectedStoreCategory] = useState<RewardItem['category']>('building');
   const [gameAnswerStatus, setGameAnswerStatus] = useState('');
   const [spentRewardPoints, setSpentRewardPoints] = useState(0);
   const [rewardEntries, setRewardEntries] = useState<Record<string, boolean>>({});
@@ -813,21 +864,34 @@ export function SurveyApp() {
   const diaryBonusPoints = diaryFirstEntryBonusClaimed ? 4 : 0;
   const growthPoints = puzzlePoints + diaryBonusPoints;
   const completedGameMissionList = gameVillages.flatMap((village) => village.missions).filter((mission) => completedGameMissions[mission.id]);
-  const gameExp = completedGameMissionList.reduce((sum, mission) => sum + mission.reward.exp, 0);
-  const gamePoints = completedGameMissionList.reduce((sum, mission) => sum + mission.reward.points, 0);
+  const initialGameVillageId = getInitialVillageId(surveyResultType);
+  const getGameMissionRewardPoints = (villageId: GameVillageId) => (villageId === initialGameVillageId ? 300 : 200);
+  const getGameMissionVillage = (missionId: string) => gameVillages.find((village) => village.missions.some((mission) => mission.id === missionId));
+  const gameExp = completedGameMissionList.reduce((sum, mission) => {
+    const village = getGameMissionVillage(mission.id);
+    return sum + (village ? getGameMissionRewardPoints(village.id) : 0);
+  }, 0);
+  const gamePoints = completedGameMissionList.reduce((sum, mission) => {
+    const village = getGameMissionVillage(mission.id);
+    return sum + (village ? getGameMissionRewardPoints(village.id) : 0);
+  }, 0);
   const gameLevel = Math.floor(gameExp / 100) + 1;
   const currentLevelExp = gameExp % 100;
   const totalCareerPoints = growthPoints + totalExperienceXp + gamePoints;
   const availableCareerPoints = Math.max(totalCareerPoints - spentRewardPoints, 0);
-  const initialGameVillageId = getInitialVillageId(surveyResultType);
   const unlockedGameVillageIds = useMemo(() => {
-    return new Set<GameVillageId>([initialGameVillageId]);
-  }, [initialGameVillageId]);
+    return new Set<GameVillageId>(gameVillages.map((village) => village.id));
+  }, []);
   const selectedGameVillage = gameVillages.find((village) => village.id === selectedGameVillageId) ?? gameVillages[0];
   const selectedGameMission =
     selectedGameVillage.missions.find((mission) => mission.id === selectedGameMissionId) ?? selectedGameVillage.missions[0];
   const completedGameMissionCount = completedGameMissionList.length;
   const gameBadges = gameVillages.filter((village) => village.missions.every((mission) => completedGameMissions[mission.id]));
+  const selectedGameCompletedCount = selectedGameVillage.missions.filter((mission) => completedGameMissions[mission.id]).length;
+  const selectedGameEnergyPercent = Math.round((selectedGameCompletedCount / selectedGameVillage.missions.length) * 100);
+  const selectedGameRewardPoints = getGameMissionRewardPoints(selectedGameVillage.id);
+  const selectedGameSubmission = gameMissionSubmissions[selectedGameMission.id];
+  const selectedStoreRewards = gameRewards.filter((reward) => reward.category === selectedStoreCategory);
   const diaryYears = useMemo(() => Array.from({ length: 16 }, (_, index) => String(2020 + index)), []);
   const diaryMonths = useMemo(() => Array.from({ length: 12 }, (_, index) => String(index + 1)), []);
   const diaryDays = useMemo(() => {
