@@ -1,6 +1,20 @@
 export type CareerType = 'investigative' | 'artistic' | 'social';
 
-export type SurveyScreen = 'home' | 'survey' | 'tieBreaker' | 'result' | 'roadmap' | 'mission' | 'diary' | 'activityMap' | 'experience' | 'parent' | 'portfolio';
+export type SurveyScreen =
+  | 'home'
+  | 'survey'
+  | 'tieBreaker'
+  | 'result'
+  | 'roadmap'
+  | 'mission'
+  | 'diary'
+  | 'activityAi'
+  | 'activityMap'
+  | 'experience'
+  | 'parent'
+  | 'portfolio'
+  | 'game'
+  | 'pointShop';
 
 export type AnswerValue = 0 | 1 | 2;
 
@@ -51,6 +65,10 @@ export type SeoulCareerActivity = {
   lat: number;
   lng: number;
   sourceUrl: string;
+  types: CareerType[];
+  minAge: number;
+  maxAge: number;
+  keywords: string[];
 };
 
 

@@ -23,6 +23,393 @@ type DiaryEntry = {
   content: string;
 };
 
+type LocalAccount = {
+  id: string;
+  name: string;
+  password: string;
+  createdAt: string;
+  lastLoginAt: string;
+};
+
+type ActiveAccount = {
+  id: string;
+  name: string;
+};
+
+type SavedActivityState = {
+  selectedHomeType: CareerType | null;
+  currentIndex: number;
+  tieBreakerIndex: number;
+  tiedTypes: CareerType[];
+  answers: AnswerMap;
+  tieBreakerAnswers: AnswerMap;
+  selectedMissionIndex: number | null;
+  puzzleMissionStates: Partial<Record<CareerType, PuzzleMissionState>>;
+  selectedPuzzleType: CareerType | null;
+  diaryUnlocked: boolean;
+  diaryEntries: DiaryEntry[];
+  diaryMode: 'list' | 'form' | 'detail';
+  experienceSubmissions: Record<string, ExperienceSubmission>;
+  selectedExperienceId: string;
+  portfolioName: string;
+  portfolioDesiredCareer: string;
+  portfolioNextGoal: string;
+  hasSurveyResult: boolean;
+  diaryFirstEntryBonusClaimed: boolean;
+  selectedGameVillageId: GameVillageId;
+  selectedGameMissionId: string;
+  gameView: 'main' | 'map' | 'mission';
+  completedGameMissions: Record<string, boolean>;
+  spentRewardPoints: number;
+  rewardEntries: Record<string, boolean>;
+};
+
+type PuzzleMissionState = {
+  reflections: string[];
+  completedCount: number;
+};
+
+type GameVillageId = 'research' | 'creation' | 'communication' | 'care' | 'field';
+
+type GameMission = {
+  id: string;
+  title: string;
+  kind: 'game' | 'real';
+  prompt: string;
+  choices: string[];
+  answerIndex: number;
+  reward: {
+    stat: string;
+    exp: number;
+    points: number;
+  };
+};
+
+type GameVillage = {
+  id: GameVillageId;
+  title: string;
+  theme: string;
+  npc: string;
+  icon: string;
+  color: string;
+  softColor: string;
+  mapPosition: {
+    top: string;
+    left: string;
+  };
+  missions: GameMission[];
+};
+
+type RewardItem = {
+  id: string;
+  title: string;
+  description: string;
+  cost: number;
+};
+
+type ActivityAiType = CareerType | 'auto';
+
+type ActivityRecommendation = {
+  activity: SeoulCareerActivity;
+  score: number;
+  distanceKm: number | null;
+  reasons: string[];
+};
+
+const gameVillages: GameVillage[] = [
+  {
+    id: 'research',
+    title: '탐구마을',
+    theme: '관찰과 실험',
+    npc: '과학자',
+    icon: '🔬',
+    color: '#2F80ED',
+    softColor: '#EAF3FF',
+    mapPosition: { top: '14%', left: '18%' },
+    missions: [
+      {
+        id: 'research-cause',
+        title: '원인 찾기 퀴즈',
+        kind: 'game',
+        prompt: '식물이 한쪽으로 기울어 자라고 있어요. 가장 먼저 확인할 것은 무엇일까요?',
+        choices: ['햇빛이 드는 방향', '화분 색깔', '친구의 취향'],
+        answerIndex: 0,
+        reward: { stat: '탐구력 +10', exp: 20, points: 20 },
+      },
+      {
+        id: 'research-data',
+        title: '자료 해석 미션',
+        kind: 'game',
+        prompt: '실험 결과를 비교할 때 가장 공정한 방법은 무엇일까요?',
+        choices: ['마음에 드는 결과만 보기', '조건을 같게 두고 기록 비교하기', '가장 큰 숫자만 고르기'],
+        answerIndex: 1,
+        reward: { stat: '분석력 +12', exp: 25, points: 25 },
+      },
+      {
+        id: 'research-real',
+        title: '과학관 활동 인증',
+        kind: 'real',
+        prompt: '서울 과학관이나 학교 과학실에서 본 전시/실험을 한 줄로 기록했다면 완료하세요.',
+        choices: ['활동 기록을 남겼어요', '아직 하지 않았어요', '다음에 할래요'],
+        answerIndex: 0,
+        reward: { stat: '현장탐구 +30', exp: 60, points: 80 },
+      },
+    ],
+  },
+  {
+    id: 'creation',
+    title: '창작마을',
+    theme: '아이디어와 표현',
+    npc: '디자이너',
+    icon: '🎨',
+    color: '#E0568A',
+    softColor: '#FFF0F5',
+    mapPosition: { top: '50%', left: '12%' },
+    missions: [
+      {
+        id: 'creation-color',
+        title: '색 조합 선택',
+        kind: 'game',
+        prompt: '친환경 캠페인 포스터를 만든다면 메시지와 가장 어울리는 색 조합은?',
+        choices: ['초록과 흰색', '회색만 사용', '아무 색이나 무작위'],
+        answerIndex: 0,
+        reward: { stat: '표현력 +10', exp: 20, points: 20 },
+      },
+      {
+        id: 'creation-user',
+        title: '사용자 생각하기',
+        kind: 'game',
+        prompt: '앱 버튼을 디자인할 때 가장 먼저 고려할 점은 무엇일까요?',
+        choices: ['내가 좋아하는 모양', '사용자가 쉽게 알아보는지', '무조건 작게 만들기'],
+        answerIndex: 1,
+        reward: { stat: '디자인감 +12', exp: 25, points: 25 },
+      },
+      {
+        id: 'creation-real',
+        title: '나만의 작품 인증',
+        kind: 'real',
+        prompt: '그림, 영상, 카드뉴스, 캐릭터 중 하나를 만들고 제목을 붙였다면 완료하세요.',
+        choices: ['작품 제목을 정했어요', '아직 만들지 않았어요', '제목은 필요 없어요'],
+        answerIndex: 0,
+        reward: { stat: '창작경험 +30', exp: 60, points: 80 },
+      },
+    ],
+  },
+  {
+    id: 'communication',
+    title: '소통마을',
+    theme: '공정한 대화',
+    npc: '판사',
+    icon: '⚖️',
+    color: '#27AE60',
+    softColor: '#EAF8EF',
+    mapPosition: { top: '26%', left: '58%' },
+    missions: [
+      {
+        id: 'communication-fair',
+        title: '갈등 조정 퀴즈',
+        kind: 'game',
+        prompt: '친구 둘이 서로 자기 말만 맞다고 해요. 가장 공정한 선택은?',
+        choices: ['친한 친구 편 들기', '양쪽 이야기를 모두 듣기', '그냥 자리 피하기'],
+        answerIndex: 1,
+        reward: { stat: '소통력 +10', exp: 20, points: 20 },
+      },
+      {
+        id: 'communication-word',
+        title: '공감 문장 고르기',
+        kind: 'game',
+        prompt: '속상한 친구에게 먼저 건넬 말로 가장 알맞은 것은?',
+        choices: ['왜 그렇게 했어?', '네 마음이 많이 답답했겠다', '그건 네 잘못이야'],
+        answerIndex: 1,
+        reward: { stat: '공감력 +12', exp: 25, points: 25 },
+      },
+      {
+        id: 'communication-real',
+        title: '인터뷰 활동 인증',
+        kind: 'real',
+        prompt: '선생님, 상담사, 친구 중 한 명과 진로 이야기를 나누고 느낀 점을 적었다면 완료하세요.',
+        choices: ['느낀 점을 적었어요', '대화하지 않았어요', '기억나지 않아요'],
+        answerIndex: 0,
+        reward: { stat: '관계경험 +30', exp: 60, points: 80 },
+      },
+    ],
+  },
+  {
+    id: 'care',
+    title: '돌봄마을',
+    theme: '건강과 배려',
+    npc: '간호사',
+    icon: '🩺',
+    color: '#9B51E0',
+    softColor: '#F3ECFF',
+    mapPosition: { top: '60%', left: '50%' },
+    missions: [
+      {
+        id: 'care-first',
+        title: '응급 상황 판단',
+        kind: 'game',
+        prompt: '친구가 운동장에서 넘어져 아파해요. 가장 먼저 할 일은?',
+        choices: ['상태를 확인하고 선생님께 알리기', '사진 찍기', '혼자 두기'],
+        answerIndex: 0,
+        reward: { stat: '돌봄력 +10', exp: 20, points: 20 },
+      },
+      {
+        id: 'care-listen',
+        title: '안심 대화',
+        kind: 'game',
+        prompt: '불안해하는 친구에게 알맞은 태도는?',
+        choices: ['빨리 잊으라고 말하기', '차분히 듣고 도움을 연결하기', '장난으로 넘기기'],
+        answerIndex: 1,
+        reward: { stat: '배려심 +12', exp: 25, points: 25 },
+      },
+      {
+        id: 'care-real',
+        title: '건강 캠페인 인증',
+        kind: 'real',
+        prompt: '손 씻기, 수면, 마음 건강 중 하나를 주제로 작은 캠페인 문구를 만들었다면 완료하세요.',
+        choices: ['캠페인 문구를 만들었어요', '아직 하지 않았어요', '관심 없어요'],
+        answerIndex: 0,
+        reward: { stat: '건강실천 +30', exp: 60, points: 80 },
+      },
+    ],
+  },
+  {
+    id: 'field',
+    title: '현장마을',
+    theme: '안전과 실행',
+    npc: '소방관',
+    icon: '🚒',
+    color: '#F2994A',
+    softColor: '#FFF3E6',
+    mapPosition: { top: '18%', left: '78%' },
+    missions: [
+      {
+        id: 'field-exit',
+        title: '대피 경로 찾기',
+        kind: 'game',
+        prompt: '건물에 들어갔을 때 안전을 위해 먼저 확인하면 좋은 것은?',
+        choices: ['비상구 위치', '가장 예쁜 벽', '매점 위치만'],
+        answerIndex: 0,
+        reward: { stat: '현장력 +10', exp: 20, points: 20 },
+      },
+      {
+        id: 'field-team',
+        title: '팀 역할 나누기',
+        kind: 'game',
+        prompt: '현장 프로젝트에서 역할을 나눌 때 좋은 방법은?',
+        choices: ['한 사람이 전부 하기', '강점과 상황에 맞게 나누기', '아무도 정하지 않기'],
+        answerIndex: 1,
+        reward: { stat: '실행력 +12', exp: 25, points: 25 },
+      },
+      {
+        id: 'field-real',
+        title: '안전 점검 인증',
+        kind: 'real',
+        prompt: '집이나 학교에서 비상구, 소화기, 안전 표지 중 하나를 확인했다면 완료하세요.',
+        choices: ['안전 위치를 확인했어요', '아직 확인하지 않았어요', '필요 없어요'],
+        answerIndex: 0,
+        reward: { stat: '안전경험 +30', exp: 60, points: 80 },
+      },
+    ],
+  },
+];
+
+const gameRewards: RewardItem[] = [
+  {
+    id: 'science-ticket',
+    title: '서울 과학관 체험권 추첨',
+    description: '과학 전시와 실험 프로그램 체험권 응모',
+    cost: 1000,
+  },
+  {
+    id: 'culture-gift',
+    title: '문화상품권 응모',
+    description: '도서, 전시, 공연 관람에 사용할 수 있는 상품권',
+    cost: 700,
+  },
+  {
+    id: 'learning-kit',
+    title: '진로 체험키트 응모',
+    description: '탐구, 창작, 소통 활동을 집에서 해볼 수 있는 키트',
+    cost: 500,
+  },
+  {
+    id: 'school-supplies',
+    title: '학용품 세트 응모',
+    description: '활동 기록에 필요한 노트와 필기구 세트',
+    cost: 300,
+  },
+];
+
+const ACCOUNT_INDEX_KEY = 'dream-road-local-accounts';
+const ACTIVE_ACCOUNT_KEY = 'dream-road-active-account';
+const ACTIVITY_KEY_PREFIX = 'dream-road-activity:';
+
+function getStorage() {
+  const storageRef = (globalThis as { localStorage?: Storage }).localStorage;
+  return storageRef ?? null;
+}
+
+function normalizeAccountName(name: string) {
+  return name.trim().toLowerCase();
+}
+
+function readJson<T>(key: string, fallback: T): T {
+  const storage = getStorage();
+
+  if (!storage) {
+    return fallback;
+  }
+
+  try {
+    const value = storage.getItem(key);
+    return value ? (JSON.parse(value) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key: string, value: unknown) {
+  const storage = getStorage();
+
+  if (!storage) {
+    return;
+  }
+
+  storage.setItem(key, JSON.stringify(value));
+}
+
+function getActivityKey(accountId: string) {
+  return `${ACTIVITY_KEY_PREFIX}${accountId}`;
+}
+
+function getStoredAccounts() {
+  return readJson<LocalAccount[]>(ACCOUNT_INDEX_KEY, []);
+}
+
+function storeAccounts(accounts: LocalAccount[]) {
+  writeJson(ACCOUNT_INDEX_KEY, accounts);
+}
+
+function getInitialVillageId(type: CareerType): GameVillageId {
+  if (type === 'investigative') {
+    return 'research';
+  }
+
+  if (type === 'artistic') {
+    return 'creation';
+  }
+
+  return 'communication';
+}
+
+function createPuzzleMissionState(): PuzzleMissionState {
+  return {
+    reflections: ['', '', ''],
+    completedCount: 0,
+  };
+}
+
 function getDiaryDateTime(dateText: string) {
   const normalizedDate = dateText.trim().match(/^(\d{4})[-./\s](\d{1,2})[-./\s](\d{1,2})$/);
 
@@ -66,6 +453,95 @@ function calculateDistanceMeters(startLat: number, startLng: number, endLat: num
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return earthRadius * c;
+}
+
+function getDistrictCenter(district: string) {
+  const districtActivities = seoulCareerActivities.filter((activity) => activity.district === district);
+
+  if (districtActivities.length === 0) {
+    return null;
+  }
+
+  return {
+    lat: districtActivities.reduce((sum, activity) => sum + activity.lat, 0) / districtActivities.length,
+    lng: districtActivities.reduce((sum, activity) => sum + activity.lng, 0) / districtActivities.length,
+  };
+}
+
+function buildActivityRecommendations(
+  ageText: string,
+  district: string,
+  selectedType: CareerType | null,
+  interestText: string,
+): ActivityRecommendation[] {
+  const age = Number(ageText);
+  const hasAge = Number.isFinite(age) && age > 0;
+  const districtCenter = district === '전체' ? null : getDistrictCenter(district);
+  const normalizedInterest = interestText.trim().toLowerCase();
+
+  return seoulCareerActivities
+    .map<ActivityRecommendation>((activity) => {
+      let score = 0;
+      const reasons: string[] = [];
+      let distanceKm: number | null = null;
+
+      if (selectedType && activity.types.includes(selectedType)) {
+        score += 45;
+        reasons.push(`${profiles[selectedType].title} 성향과 활동 주제가 잘 맞아요.`);
+      } else if (selectedType) {
+        score += 8;
+      } else {
+        score += 22;
+        reasons.push('성향을 아직 고르지 않아 여러 유형을 폭넓게 비교했어요.');
+      }
+
+      if (district === '전체') {
+        score += 18;
+        reasons.push('희망지역을 전체로 두어 서울 전역 활동을 열어두었어요.');
+      } else if (activity.district === district) {
+        score += 35;
+        distanceKm = 0;
+        reasons.push(`${district} 희망지역과 정확히 일치해요.`);
+      } else if (districtCenter) {
+        const distanceMeters = calculateDistanceMeters(districtCenter.lat, districtCenter.lng, activity.lat, activity.lng);
+        distanceKm = Math.round((distanceMeters / 1000) * 10) / 10;
+        const distanceScore = Math.max(0, 25 - distanceKm * 2);
+        score += distanceScore;
+
+        if (distanceKm <= 5) {
+          reasons.push(`희망지역에서 약 ${distanceKm}km 거리라 이동 부담이 낮아요.`);
+        }
+      }
+
+      if (hasAge && age >= activity.minAge && age <= activity.maxAge) {
+        score += 25;
+        reasons.push(`${activity.minAge}-${activity.maxAge}세 권장 활동이라 입력한 나이에 맞아요.`);
+      } else if (hasAge && Math.abs(age - activity.minAge) <= 2) {
+        score += 10;
+        reasons.push('권장 연령과 가깝지만 보호자 확인이 있으면 더 좋아요.');
+      } else if (!hasAge) {
+        score += 12;
+        reasons.push('나이를 입력하면 연령 적합도를 더 정확히 계산할 수 있어요.');
+      }
+
+      if (normalizedInterest) {
+        const searchableText = `${activity.title} ${activity.place} ${activity.info} ${activity.keywords.join(' ')}`.toLowerCase();
+
+        if (searchableText.includes(normalizedInterest)) {
+          score += 15;
+          reasons.push(`관심 키워드 "${interestText.trim()}"와 연결돼요.`);
+        }
+      }
+
+      return {
+        activity,
+        score: Math.round(score),
+        distanceKm,
+        reasons: reasons.slice(0, 3),
+      };
+    })
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 3);
 }
 
 function getProofLabel(mission: ExperienceMission) {
@@ -170,6 +646,12 @@ function KakaoActivityMap({ activities }: { activities: SeoulCareerActivity[] })
 
 export function SurveyApp() {
   const [screen, setScreen] = useState<SurveyScreen>('home');
+  const [currentAccount, setCurrentAccount] = useState<ActiveAccount | null>(null);
+  const [loginMode, setLoginMode] = useState<'login' | 'signup'>('login');
+  const [loginName, setLoginName] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginStatus, setLoginStatus] = useState('');
+  const [activityLoaded, setActivityLoaded] = useState(false);
   const [selectedHomeType, setSelectedHomeType] = useState<CareerType | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [tieBreakerIndex, setTieBreakerIndex] = useState(0);
@@ -178,9 +660,9 @@ export function SurveyApp() {
   const [tieBreakerAnswers, setTieBreakerAnswers] = useState<AnswerMap>({});
   const [selectedMissionIndex, setSelectedMissionIndex] = useState<number | null>(0);
   const [recordingMissionIndex, setRecordingMissionIndex] = useState<number | null>(null);
-  const [missionReflections, setMissionReflections] = useState<string[]>(['', '', '']);
   const [reflectionDraft, setReflectionDraft] = useState('');
-  const [completedMissionCount, setCompletedMissionCount] = useState(0);
+  const [puzzleMissionStates, setPuzzleMissionStates] = useState<Partial<Record<CareerType, PuzzleMissionState>>>({});
+  const [selectedPuzzleType, setSelectedPuzzleType] = useState<CareerType | null>(null);
   const [diaryUnlocked, setDiaryUnlocked] = useState(false);
   const [diaryType, setDiaryType] = useState('');
   const [diaryGoal, setDiaryGoal] = useState('');
@@ -193,6 +675,14 @@ export function SurveyApp() {
   const [selectedDiaryEntryId, setSelectedDiaryEntryId] = useState<string | null>(null);
   const [showActivityMap, setShowActivityMap] = useState(false);
   const [selectedMapActivityId, setSelectedMapActivityId] = useState<string | null>(null);
+  const [activityAiAge, setActivityAiAge] = useState('');
+  const [activityAiDistrict, setActivityAiDistrict] = useState('전체');
+  const [activityAiType, setActivityAiType] = useState<ActivityAiType>('auto');
+  const [activityAiInterest, setActivityAiInterest] = useState('');
+  const [activityAiSubmitted, setActivityAiSubmitted] = useState(false);
+  const [activityAiResults, setActivityAiResults] = useState<ActivityRecommendation[]>([]);
+  const [submittedActivityAiType, setSubmittedActivityAiType] = useState<CareerType | null>(null);
+  const [activityAiMapActivityId, setActivityAiMapActivityId] = useState<string | null>(null);
   const [experienceSubmissions, setExperienceSubmissions] = useState<Record<string, ExperienceSubmission>>({});
   const [selectedExperienceId, setSelectedExperienceId] = useState(experienceMissions[0]?.id ?? '');
   const [experienceProofText, setExperienceProofText] = useState('');
@@ -201,11 +691,19 @@ export function SurveyApp() {
   const [gpsStatus, setGpsStatus] = useState('');
   const [portfolioName, setPortfolioName] = useState('김OO');
   const [portfolioDesiredCareer, setPortfolioDesiredCareer] = useState('');
+  const [portfolioNextGoal, setPortfolioNextGoal] = useState('');
   const [hasSurveyResult, setHasSurveyResult] = useState(false);
   const [missionEntrySource, setMissionEntrySource] = useState<'home' | 'roadmap'>('roadmap');
   const [experienceEntrySource, setExperienceEntrySource] = useState<'home' | 'roadmap'>('roadmap');
   const [diaryFirstEntryBonusClaimed, setDiaryFirstEntryBonusClaimed] = useState(false);
   const [pointPopupText, setPointPopupText] = useState('');
+  const [selectedGameVillageId, setSelectedGameVillageId] = useState<GameVillageId>('research');
+  const [selectedGameMissionId, setSelectedGameMissionId] = useState(gameVillages[0].missions[0].id);
+  const [gameView, setGameView] = useState<'main' | 'map' | 'mission'>('main');
+  const [completedGameMissions, setCompletedGameMissions] = useState<Record<string, boolean>>({});
+  const [gameAnswerStatus, setGameAnswerStatus] = useState('');
+  const [spentRewardPoints, setSpentRewardPoints] = useState(0);
+  const [rewardEntries, setRewardEntries] = useState<Record<string, boolean>>({});
   const pointPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentQuestion = questions[currentIndex];
@@ -234,28 +732,61 @@ export function SurveyApp() {
     );
   }, [experienceSubmissions]);
   const finalScores = useMemo(() => combineScores(surveyFinalScores, experienceScores), [surveyFinalScores, experienceScores]);
+  const surveyResultType = useMemo(() => getTopCareerType(surveyFinalScores), [surveyFinalScores]);
   const resultType = useMemo(() => getTopCareerType(finalScores), [finalScores]);
   const resultProfile = profiles[resultType];
+  const puzzleResultType = hasSurveyResult ? surveyResultType : resultType;
+  const activePuzzleType = selectedPuzzleType ?? puzzleResultType;
+  const activePuzzleProfile = profiles[activePuzzleType];
   const puzzleMissions = useMemo(
     () =>
-      resultProfile.missionTasks.map((task, index) => ({
+      activePuzzleProfile.missionTasks.map((task, index) => ({
         step: `${index + 1}단계`,
         title: `${index + 1}번째 작은 성장 과제`,
         place: '성장 노트',
         quest: task,
       })),
-    [resultProfile],
+    [activePuzzleProfile],
   );
   const selectedExperienceMission = experienceMissions.find((mission) => mission.id === selectedExperienceId) ?? experienceMissions[0];
   const completedExperienceCount = Object.keys(experienceSubmissions).length;
   const totalExperienceXp = Object.values(experienceSubmissions).reduce((sum, submission) => sum + submission.earnedXp, 0);
+  const activePuzzleState = puzzleMissionStates[activePuzzleType] ?? createPuzzleMissionState();
+  const missionReflections = activePuzzleState.reflections;
+  const completedMissionCount = activePuzzleState.completedCount;
   const unlockedMissionCount = Math.min(completedMissionCount + 1, puzzleMissions.length);
   const collectedPuzzleCount = Math.min(completedMissionCount + 1, 4);
   const allMissionsCompleted = completedMissionCount >= puzzleMissions.length;
-  const puzzlePoints = collectedPuzzleCount * 2;
+  const puzzleTypes = careerTypes.filter((type) => puzzleMissionStates[type]);
+  const puzzlePoints = puzzleTypes.reduce((sum, type) => {
+    const state = puzzleMissionStates[type] ?? createPuzzleMissionState();
+    return sum + Math.min(state.completedCount + 1, 4) * 2;
+  }, 0);
   const diaryBonusPoints = diaryFirstEntryBonusClaimed ? 4 : 0;
   const growthPoints = puzzlePoints + diaryBonusPoints;
-  const totalCareerPoints = growthPoints + totalExperienceXp;
+  const completedGameMissionList = gameVillages.flatMap((village) => village.missions).filter((mission) => completedGameMissions[mission.id]);
+  const gameExp = completedGameMissionList.reduce((sum, mission) => sum + mission.reward.exp, 0);
+  const gamePoints = completedGameMissionList.reduce((sum, mission) => sum + mission.reward.points, 0);
+  const gameLevel = Math.floor(gameExp / 100) + 1;
+  const currentLevelExp = gameExp % 100;
+  const totalCareerPoints = growthPoints + totalExperienceXp + gamePoints;
+  const availableCareerPoints = Math.max(totalCareerPoints - spentRewardPoints, 0);
+  const initialGameVillageId = getInitialVillageId(surveyResultType);
+  const unlockedGameVillageIds = useMemo(() => {
+    const ids = new Set<GameVillageId>([initialGameVillageId]);
+    const orderedVillages = gameVillages.map((village) => village.id).filter((id) => id !== initialGameVillageId);
+
+    for (let index = 0; index < Math.min(gameLevel - 1, orderedVillages.length); index += 1) {
+      ids.add(orderedVillages[index]);
+    }
+
+    return ids;
+  }, [gameLevel, initialGameVillageId]);
+  const selectedGameVillage = gameVillages.find((village) => village.id === selectedGameVillageId) ?? gameVillages[0];
+  const selectedGameMission =
+    selectedGameVillage.missions.find((mission) => mission.id === selectedGameMissionId) ?? selectedGameVillage.missions[0];
+  const completedGameMissionCount = completedGameMissionList.length;
+  const gameBadges = gameVillages.filter((village) => village.missions.every((mission) => completedGameMissions[mission.id]));
   const diaryYears = useMemo(() => Array.from({ length: 16 }, (_, index) => String(2020 + index)), []);
   const diaryMonths = useMemo(() => Array.from({ length: 12 }, (_, index) => String(index + 1)), []);
   const diaryDays = useMemo(() => {
@@ -269,6 +800,11 @@ export function SurveyApp() {
   const selectedDiaryDate = formatDiaryDate(diaryYear, diaryMonth, diaryDay);
   const selectedMapActivity = seoulCareerActivities.find((activity) => activity.id === selectedMapActivityId);
   const visibleMapActivities = selectedMapActivity ? [selectedMapActivity] : seoulCareerActivities;
+  const activityAiDistricts = useMemo(
+    () => ['전체', ...Array.from(new Set(seoulCareerActivities.map((activity) => activity.district)))],
+    [],
+  );
+  const resolvedActivityAiType = activityAiType === 'auto' ? (hasSurveyResult ? resultType : null) : activityAiType;
   const sortedDiaryEntries = useMemo(
     () =>
       [...diaryEntries].sort((left, right) => {
@@ -329,6 +865,186 @@ export function SurveyApp() {
     return activity.title.includes('청소년') || activity.info.includes('리더십') || activity.info.includes('봉사');
   });
 
+  const getCurrentActivityState = (): SavedActivityState => ({
+    selectedHomeType,
+    currentIndex,
+    tieBreakerIndex,
+    tiedTypes,
+    answers,
+    tieBreakerAnswers,
+    selectedMissionIndex,
+    puzzleMissionStates,
+    selectedPuzzleType,
+    diaryUnlocked,
+    diaryEntries,
+    diaryMode,
+    experienceSubmissions,
+    selectedExperienceId,
+    portfolioName,
+    portfolioDesiredCareer,
+    portfolioNextGoal,
+    hasSurveyResult,
+    diaryFirstEntryBonusClaimed,
+    selectedGameVillageId,
+    selectedGameMissionId,
+    gameView,
+    completedGameMissions,
+    spentRewardPoints,
+    rewardEntries,
+  });
+
+  const resetActivityState = () => {
+    setScreen('home');
+    setSelectedHomeType(null);
+    setCurrentIndex(0);
+    setTieBreakerIndex(0);
+    setTiedTypes([]);
+    setAnswers({});
+    setTieBreakerAnswers({});
+    setSelectedMissionIndex(0);
+    setRecordingMissionIndex(null);
+    setReflectionDraft('');
+    setPuzzleMissionStates({});
+    setSelectedPuzzleType(null);
+    setDiaryUnlocked(false);
+    setDiaryType('');
+    setDiaryGoal('');
+    setDiaryYear('');
+    setDiaryMonth('');
+    setDiaryDay('');
+    setDiaryContent('');
+    setDiaryEntries([]);
+    setDiaryMode('list');
+    setSelectedDiaryEntryId(null);
+    setShowActivityMap(false);
+    setSelectedMapActivityId(null);
+    setExperienceSubmissions({});
+    setSelectedExperienceId(experienceMissions[0]?.id ?? '');
+    setExperienceProofText('');
+    setExperienceReflection('');
+    setGpsVerifiedMissionId(null);
+    setGpsStatus('');
+    setPortfolioName('김OO');
+    setPortfolioDesiredCareer('');
+    setPortfolioNextGoal('');
+    setHasSurveyResult(false);
+    setMissionEntrySource('roadmap');
+    setExperienceEntrySource('roadmap');
+    setDiaryFirstEntryBonusClaimed(false);
+    setSelectedGameVillageId('research');
+    setSelectedGameMissionId(gameVillages[0].missions[0].id);
+    setGameView('main');
+    setCompletedGameMissions({});
+    setGameAnswerStatus('');
+    setSpentRewardPoints(0);
+    setRewardEntries({});
+  };
+
+  const loadActivityState = (accountId: string) => {
+    const savedState = readJson<SavedActivityState | null>(getActivityKey(accountId), null);
+
+    resetActivityState();
+
+    if (!savedState) {
+      setActivityLoaded(true);
+      return;
+    }
+
+    setSelectedHomeType(savedState.selectedHomeType ?? null);
+    setCurrentIndex(savedState.currentIndex ?? 0);
+    setTieBreakerIndex(savedState.tieBreakerIndex ?? 0);
+    setTiedTypes(savedState.tiedTypes ?? []);
+    setAnswers(savedState.answers ?? {});
+    setTieBreakerAnswers(savedState.tieBreakerAnswers ?? {});
+    setSelectedMissionIndex(savedState.selectedMissionIndex ?? 0);
+    setPuzzleMissionStates(savedState.puzzleMissionStates ?? {});
+    setSelectedPuzzleType(savedState.selectedPuzzleType ?? null);
+    setDiaryUnlocked(Boolean(savedState.diaryUnlocked));
+    setDiaryEntries(savedState.diaryEntries ?? []);
+    setDiaryMode(savedState.diaryMode ?? 'list');
+    setExperienceSubmissions(savedState.experienceSubmissions ?? {});
+    setSelectedExperienceId(savedState.selectedExperienceId || experienceMissions[0]?.id || '');
+    setPortfolioName(savedState.portfolioName || '김OO');
+    setPortfolioDesiredCareer(savedState.portfolioDesiredCareer ?? '');
+    setPortfolioNextGoal(savedState.portfolioNextGoal ?? '');
+    setHasSurveyResult(Boolean(savedState.hasSurveyResult));
+    setDiaryFirstEntryBonusClaimed(Boolean(savedState.diaryFirstEntryBonusClaimed));
+    setSelectedGameVillageId(savedState.selectedGameVillageId ?? 'research');
+    setSelectedGameMissionId(savedState.selectedGameMissionId || gameVillages[0].missions[0].id);
+    setGameView(savedState.gameView ?? 'main');
+    setCompletedGameMissions(savedState.completedGameMissions ?? {});
+    setSpentRewardPoints(savedState.spentRewardPoints ?? 0);
+    setRewardEntries(savedState.rewardEntries ?? {});
+    setActivityLoaded(true);
+  };
+
+  const submitLogin = () => {
+    const name = loginName.trim();
+    const password = loginPassword;
+
+    if (!name || !password) {
+      setLoginStatus('아이디와 비밀번호를 입력하세요.');
+      return;
+    }
+
+    const accounts = getStoredAccounts();
+    const normalizedName = normalizeAccountName(name);
+    const existingAccount = accounts.find((account) => normalizeAccountName(account.name) === normalizedName);
+
+    if (loginMode === 'signup') {
+      if (existingAccount) {
+        setLoginStatus('이미 있는 아이디입니다.');
+        return;
+      }
+
+      const account: LocalAccount = {
+        id: `${Date.now()}-${normalizedName}`,
+        name,
+        password,
+        createdAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+      };
+
+      storeAccounts([...accounts, account]);
+      writeJson(ACTIVE_ACCOUNT_KEY, account.id);
+      setCurrentAccount({ id: account.id, name: account.name });
+      setLoginPassword('');
+      setLoginStatus('');
+      loadActivityState(account.id);
+      return;
+    }
+
+    if (!existingAccount || existingAccount.password !== password) {
+      setLoginStatus('아이디 또는 비밀번호가 맞지 않습니다.');
+      return;
+    }
+
+    const updatedAccounts = accounts.map((account) =>
+      account.id === existingAccount.id ? { ...account, lastLoginAt: new Date().toISOString() } : account,
+    );
+    storeAccounts(updatedAccounts);
+    writeJson(ACTIVE_ACCOUNT_KEY, existingAccount.id);
+    setCurrentAccount({ id: existingAccount.id, name: existingAccount.name });
+    setLoginPassword('');
+    setLoginStatus('');
+    loadActivityState(existingAccount.id);
+  };
+
+  const logoutAccount = () => {
+    if (currentAccount) {
+      writeJson(getActivityKey(currentAccount.id), getCurrentActivityState());
+    }
+
+    const storage = getStorage();
+    storage?.removeItem(ACTIVE_ACCOUNT_KEY);
+    setCurrentAccount(null);
+    setActivityLoaded(false);
+    setLoginMode('login');
+    setLoginPassword('');
+    setLoginStatus('');
+    resetActivityState();
+  };
+
   const restartSurvey = () => {
     setAnswers({});
     setTieBreakerAnswers({});
@@ -337,10 +1053,7 @@ export function SurveyApp() {
     setTieBreakerIndex(0);
     setSelectedMissionIndex(0);
     setRecordingMissionIndex(null);
-    setMissionReflections(['', '', '']);
     setReflectionDraft('');
-    setCompletedMissionCount(0);
-    setExperienceSubmissions({});
     setExperienceProofText('');
     setExperienceReflection('');
     setGpsVerifiedMissionId(null);
@@ -414,6 +1127,16 @@ export function SurveyApp() {
     }
   };
 
+  const updatePuzzleState = (type: CareerType, updater: (state: PuzzleMissionState) => PuzzleMissionState) => {
+    setPuzzleMissionStates((prevStates) => {
+      const currentState = prevStates[type] ?? createPuzzleMissionState();
+      return {
+        ...prevStates,
+        [type]: updater(currentState),
+      };
+    });
+  };
+
   const showPointPopup = (points: number) => {
     if (pointPopupTimerRef.current) {
       clearTimeout(pointPopupTimerRef.current);
@@ -436,9 +1159,11 @@ export function SurveyApp() {
       return;
     }
 
-    const nextReflections = [...missionReflections];
-    nextReflections[recordingMissionIndex] = reflectionDraft.trim();
-    setMissionReflections(nextReflections);
+    updatePuzzleState(activePuzzleType, (state) => {
+      const nextReflections = [...state.reflections];
+      nextReflections[recordingMissionIndex] = reflectionDraft.trim();
+      return { ...state, reflections: nextReflections };
+    });
     setRecordingMissionIndex(null);
   };
 
@@ -448,18 +1173,18 @@ export function SurveyApp() {
     }
 
     const nextCompletedCount = Math.min(completedMissionCount + 1, puzzleMissions.length);
-    setCompletedMissionCount(nextCompletedCount);
+    updatePuzzleState(activePuzzleType, (state) => ({ ...state, completedCount: nextCompletedCount }));
     setSelectedMissionIndex(Math.min(index + 1, puzzleMissions.length - 1));
     showPointPopup(2);
 
     if (nextCompletedCount >= puzzleMissions.length) {
-      setDiaryType(resultProfile.title);
+      setDiaryType(activePuzzleProfile.title);
     }
   };
 
   const claimGrowthDiary = () => {
     setDiaryUnlocked(true);
-    setDiaryType(resultProfile.title);
+    setDiaryType(activePuzzleProfile.title);
     setScreen('diary');
   };
 
@@ -519,6 +1244,20 @@ export function SurveyApp() {
     setShowActivityMap(true);
   };
 
+  const resetActivityAiOutput = () => {
+    setActivityAiSubmitted(false);
+    setActivityAiResults([]);
+    setActivityAiMapActivityId(null);
+  };
+
+  const submitActivityAi = () => {
+    const nextType = activityAiType === 'auto' ? (hasSurveyResult ? resultType : null) : activityAiType;
+    setSubmittedActivityAiType(nextType);
+    setActivityAiResults(buildActivityRecommendations(activityAiAge, activityAiDistrict, nextType, activityAiInterest));
+    setActivityAiSubmitted(true);
+    setActivityAiMapActivityId(null);
+  };
+
   const openDiaryEntry = (entryId: string) => {
     setSelectedDiaryEntryId(entryId);
     setDiaryMode('detail');
@@ -530,6 +1269,15 @@ export function SurveyApp() {
     setExperienceProofText(submission?.proofText ?? '');
     setExperienceReflection(submission?.reflection ?? '');
     setGpsStatus(submission ? '이미 인증된 미션입니다.' : '');
+  };
+
+  const openRoadmapExperienceMission = (stepIndex: number) => {
+    const typeMissions = experienceMissions.filter((mission) => mission.type === resultProfile.type);
+    const mission = typeMissions[stepIndex % typeMissions.length] ?? experienceMissions[0];
+
+    setExperienceEntrySource('roadmap');
+    selectExperienceMission(mission);
+    setScreen('experience');
   };
 
   const verifyExperienceLocation = () => {
@@ -611,6 +1359,72 @@ export function SurveyApp() {
     showPointPopup(selectedExperienceMission.xp);
   };
 
+  const openGameVillage = (village: GameVillage) => {
+    if (!unlockedGameVillageIds.has(village.id)) {
+      setGameAnswerStatus('레벨을 올리면 새로운 마을이 열립니다.');
+      return;
+    }
+
+    setSelectedGameVillageId(village.id);
+    setSelectedGameMissionId(village.missions[0].id);
+    setGameView('mission');
+    setGameAnswerStatus(`${village.npc} NPC가 미션을 준비했어요.`);
+  };
+
+  const selectGameMission = (mission: GameMission) => {
+    setSelectedGameMissionId(mission.id);
+    setGameAnswerStatus(completedGameMissions[mission.id] ? '이미 완료한 미션입니다.' : '');
+  };
+
+  const completeGameMission = (choiceIndex: number) => {
+    if (!selectedGameMission || completedGameMissions[selectedGameMission.id]) {
+      return;
+    }
+
+    if (choiceIndex !== selectedGameMission.answerIndex) {
+      setGameAnswerStatus('다시 생각해보세요. NPC의 설명을 읽고 가장 알맞은 선택지를 고르세요.');
+      return;
+    }
+
+    setCompletedGameMissions({
+      ...completedGameMissions,
+      [selectedGameMission.id]: true,
+    });
+    setGameAnswerStatus(
+      `${selectedGameMission.reward.stat}, 경험치 +${selectedGameMission.reward.exp}, 포인트 +${selectedGameMission.reward.points}`,
+    );
+    showPointPopup(selectedGameMission.reward.points);
+  };
+
+  const enterGame = () => {
+    const villageId = hasSurveyResult ? getInitialVillageId(surveyResultType) : selectedGameVillageId;
+    const village = gameVillages.find((item) => item.id === villageId) ?? gameVillages[0];
+
+    setSelectedGameVillageId(village.id);
+    setSelectedGameMissionId(village.missions[0].id);
+    setGameView('main');
+    setGameAnswerStatus('');
+    setScreen('game');
+  };
+
+  const applyReward = (reward: RewardItem) => {
+    if (rewardEntries[reward.id]) {
+      return;
+    }
+
+    if (availableCareerPoints < reward.cost) {
+      setGameAnswerStatus(`${reward.title} 응모에는 ${reward.cost}포인트가 필요합니다.`);
+      return;
+    }
+
+    setSpentRewardPoints(spentRewardPoints + reward.cost);
+    setRewardEntries({
+      ...rewardEntries,
+      [reward.id]: true,
+    });
+    setGameAnswerStatus(`${reward.title} 응모가 완료되었습니다.`);
+  };
+
   const printParentReport = () => {
     const windowRef = globalThis as typeof globalThis & { print?: () => void };
 
@@ -628,10 +1442,78 @@ export function SurveyApp() {
   };
 
   useEffect(() => {
+    const activeAccountId = readJson<string | null>(ACTIVE_ACCOUNT_KEY, null);
+    const activeAccount = getStoredAccounts().find((account) => account.id === activeAccountId);
+
+    if (!activeAccount) {
+      return;
+    }
+
+    setCurrentAccount({ id: activeAccount.id, name: activeAccount.name });
+    loadActivityState(activeAccount.id);
+  }, []);
+
+  useEffect(() => {
+    if (!currentAccount || !activityLoaded) {
+      return;
+    }
+
+    writeJson(getActivityKey(currentAccount.id), getCurrentActivityState());
+  }, [
+    currentAccount,
+    activityLoaded,
+    selectedHomeType,
+    currentIndex,
+    tieBreakerIndex,
+    tiedTypes,
+    answers,
+    tieBreakerAnswers,
+    selectedMissionIndex,
+    puzzleMissionStates,
+    selectedPuzzleType,
+    diaryUnlocked,
+    diaryEntries,
+    diaryMode,
+    experienceSubmissions,
+    selectedExperienceId,
+    portfolioName,
+    portfolioDesiredCareer,
+    portfolioNextGoal,
+    hasSurveyResult,
+    diaryFirstEntryBonusClaimed,
+    selectedGameVillageId,
+    selectedGameMissionId,
+    gameView,
+    completedGameMissions,
+    spentRewardPoints,
+    rewardEntries,
+  ]);
+
+  useEffect(() => {
     if (diaryDay && !diaryDays.includes(diaryDay)) {
       setDiaryDay('');
     }
   }, [diaryDay, diaryDays]);
+
+  useEffect(() => {
+    if (!hasSurveyResult) {
+      return;
+    }
+
+    setPuzzleMissionStates((prevStates) => {
+      if (prevStates[surveyResultType]) {
+        return prevStates;
+      }
+
+      return {
+        ...prevStates,
+        [surveyResultType]: createPuzzleMissionState(),
+      };
+    });
+    setSelectedPuzzleType(surveyResultType);
+    setSelectedMissionIndex(0);
+    setRecordingMissionIndex(null);
+  }, [hasSurveyResult, surveyResultType]);
 
   useEffect(() => {
     return () => {
@@ -640,6 +1522,87 @@ export function SurveyApp() {
       }
     };
   }, []);
+
+  if (!currentAccount) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+          <View style={styles.loginPanel}>
+            <Text style={styles.loginIcon}>🧭</Text>
+            <Text style={styles.loginTitle}>꿈길 찾기 로그인</Text>
+            <Text style={styles.loginText}>
+              계정으로 로그인하면 검사 결과, 로드맵 활동, 퍼즐 미션, 성장 다이어리와 포인트 기록이 이 브라우저에 저장됩니다.
+            </Text>
+
+            <View style={styles.loginModeRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.loginModeButton,
+                  loginMode === 'login' && styles.loginModeButtonActive,
+                  pressed && styles.pressed,
+                ]}
+                android_ripple={{ color: '#1F2A4424' }}
+                accessibilityRole="button"
+                onPress={() => {
+                  setLoginMode('login');
+                  setLoginStatus('');
+                }}
+              >
+                <Text style={[styles.loginModeText, loginMode === 'login' && styles.loginModeTextActive]}>로그인</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.loginModeButton,
+                  loginMode === 'signup' && styles.loginModeButtonActive,
+                  pressed && styles.pressed,
+                ]}
+                android_ripple={{ color: '#1F2A4424' }}
+                accessibilityRole="button"
+                onPress={() => {
+                  setLoginMode('signup');
+                  setLoginStatus('');
+                }}
+              >
+                <Text style={[styles.loginModeText, loginMode === 'signup' && styles.loginModeTextActive]}>회원가입</Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.loginLabel}>아이디</Text>
+            <TextInput
+              style={styles.loginInput}
+              placeholder="아이디를 입력하세요"
+              placeholderTextColor="#8A9AAF"
+              value={loginName}
+              onChangeText={setLoginName}
+              autoCapitalize="none"
+            />
+
+            <Text style={styles.loginLabel}>비밀번호</Text>
+            <TextInput
+              style={styles.loginInput}
+              placeholder="비밀번호를 입력하세요"
+              placeholderTextColor="#8A9AAF"
+              value={loginPassword}
+              onChangeText={setLoginPassword}
+              secureTextEntry
+            />
+
+            {loginStatus ? <Text style={styles.loginStatus}>{loginStatus}</Text> : null}
+
+            <Pressable
+              style={({ pressed }) => [styles.loginSubmitButton, pressed && styles.pressed]}
+              android_ripple={{ color: '#0000002E' }}
+              accessibilityRole="button"
+              onPress={submitLogin}
+            >
+              <Text style={styles.primaryButtonText}>{loginMode === 'login' ? '로그인하기' : '계정 만들기'}</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -654,41 +1617,64 @@ export function SurveyApp() {
           <View style={styles.hero}>
             <View style={styles.topBar}>
               <Text style={styles.brand}>꿈길 찾기</Text>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>3유형 진로 검사</Text>
+              <View style={styles.accountBox}>
+                <Text style={styles.accountName}>{currentAccount.name}</Text>
+                <Pressable
+                  style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}
+                  android_ripple={{ color: '#1F2A4424' }}
+                  accessibilityRole="button"
+                  onPress={logoutAccount}
+                >
+                  <Text style={styles.logoutButtonText}>로그아웃</Text>
+                </Pressable>
               </View>
             </View>
 
-            <View style={styles.heroContent}>
-              <View style={styles.heroImage}>
-                <Text style={styles.heroIcon}>🧭</Text>
-              </View>
-              <Text style={styles.eyebrow}>탐구형 · 예술형 · 사회형</Text>
-              <Text style={styles.title}>나에게 어울리는 진로 유형을 찾아봐요</Text>
-              <Text style={styles.subtitle}>
-                75개의 문항에 답하면 가장 점수가 높은 유형과 맞춤 로드맵을 확인할 수 있어요.
-              </Text>
-              {hasSurveyResult && (
-                <View style={[styles.homeResultCard, { borderColor: resultProfile.color }]}>
-                  <Text style={styles.homeResultLabel}>나의 유형</Text>
-                  <View style={styles.homeResultRow}>
-                    <Text style={styles.homeResultIcon}>{resultProfile.icon}</Text>
-                    <View style={styles.homeResultTextWrap}>
-                      <Text style={[styles.homeResultTitle, { color: resultProfile.color }]}>{resultProfile.title}</Text>
-                      <Text style={styles.homeResultSubtitle}>{resultProfile.nickname}</Text>
+            <View style={styles.heroMain}>
+              <View style={styles.heroContent}>
+                <View style={styles.heroImage}>
+                  <Text style={styles.heroIcon}>🧭</Text>
+                </View>
+                <Text style={styles.eyebrow}>탐구형 · 예술형 · 사회형</Text>
+                <Text style={styles.title}>나에게 어울리는 진로 유형을 찾아봐요</Text>
+                <Text style={styles.subtitle}>
+                  51개의 문항에 답하면 가장 점수가 높은 유형과 맞춤 로드맵을 확인할 수 있어요.
+                </Text>
+                {hasSurveyResult && (
+                  <View style={[styles.homeResultCard, { borderColor: resultProfile.color }]}>
+                    <Text style={styles.homeResultLabel}>나의 유형</Text>
+                    <View style={styles.homeResultRow}>
+                      <Text style={styles.homeResultIcon}>{resultProfile.icon}</Text>
+                      <View style={styles.homeResultTextWrap}>
+                        <Text style={[styles.homeResultTitle, { color: resultProfile.color }]}>{resultProfile.title}</Text>
+                        <Text style={styles.homeResultSubtitle}>{resultProfile.nickname}</Text>
+                      </View>
                     </View>
                   </View>
+                )}
+                {hasSurveyResult && (
+                  <View style={styles.homePointCard}>
+                    <Text style={styles.homePointLabel}>획득 포인트</Text>
+                    <Text style={styles.homePointValue}>{availableCareerPoints}점</Text>
+                    <Text style={styles.homePointText}>
+                      퍼즐 {growthPoints}점 · 진로 {totalExperienceXp}점 · 게임 {gamePoints}점
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <Pressable
+                style={({ pressed }) => [styles.gameHomeButton, pressed && styles.pressed]}
+                android_ripple={{ color: '#0000002E' }}
+                accessibilityRole="button"
+                onPress={enterGame}
+              >
+                <Text style={styles.gameHomeIcon}>🎮</Text>
+                <View style={styles.gameHomeTextWrap}>
+                  <Text style={styles.gameHomeTitle}>진로월드</Text>
+                  <Text style={styles.gameHomeText}>마을 NPC 미션으로 포인트를 더 빠르게 모아요</Text>
                 </View>
-              )}
-              {hasSurveyResult && (
-                <View style={styles.homePointCard}>
-                  <Text style={styles.homePointLabel}>획득 포인트</Text>
-                  <Text style={styles.homePointValue}>{totalCareerPoints}점</Text>
-                  <Text style={styles.homePointText}>
-                    퍼즐 미션 {growthPoints}점 · 진로 미션 {totalExperienceXp}점
-                  </Text>
-                </View>
-              )}
+              </Pressable>
             </View>
 
             <Pressable
@@ -722,6 +1708,17 @@ export function SurveyApp() {
                 </View>
               </Pressable>
             )}
+
+            {hasSurveyResult && (
+              <Pressable
+                style={({ pressed }) => [styles.pointShopHomeButton, pressed && styles.pressed]}
+                android_ripple={{ color: '#1F2A4424' }}
+                accessibilityRole="button"
+                onPress={() => setScreen('pointShop')}
+              >
+                <Text style={styles.pointShopHomeText}>포인트 사용하기</Text>
+              </Pressable>
+            )}
           </View>
 
           {hasSurveyResult && (
@@ -746,6 +1743,7 @@ export function SurveyApp() {
                   accessibilityRole="button"
                   onPress={() => {
                     setMissionEntrySource('home');
+                    setSelectedPuzzleType(puzzleResultType);
                     setScreen('mission');
                   }}
                 >
@@ -807,6 +1805,19 @@ export function SurveyApp() {
           </View>
 
           <Pressable
+            style={({ pressed }) => [styles.activityAiHomeButton, pressed && styles.pressed]}
+            android_ripple={{ color: '#1F2A4424' }}
+            accessibilityRole="button"
+            onPress={() => setScreen('activityAi')}
+          >
+            <Text style={styles.activityMapHomeIcon}>🤖</Text>
+            <View style={styles.activityMapHomeTextWrap}>
+              <Text style={styles.activityMapHomeTitle}>활동추천AI</Text>
+              <Text style={styles.activityMapHomeText}>나이, 희망지역, 성향을 분석해서 맞춤 진로 활동을 추천해요.</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
             style={({ pressed }) => [styles.activityMapHomeButton, pressed && styles.pressed]}
             android_ripple={{ color: '#1F2A4424' }}
             accessibilityRole="button"
@@ -863,8 +1874,8 @@ export function SurveyApp() {
 
           <View style={styles.portfolioHero}>
             <Text style={styles.portfolioIcon}>📁</Text>
-            <Text style={styles.portfolioTitle}>진로 성장 포트폴리오</Text>
-            <Text style={styles.portfolioSubtitle}>검사 결과와 실제 경험을 자동으로 정리한 PDF용 포트폴리오입니다.</Text>
+            <Text style={styles.portfolioTitle}>나의 진로 포트폴리오</Text>
+            <Text style={styles.portfolioSubtitle}>내가 해본 활동, 느낀 점, 앞으로의 목표를 모아두는 학생용 성장 기록장입니다.</Text>
             <Text style={styles.diaryLabel}>이름</Text>
             <TextInput
               style={styles.diaryInput}
@@ -904,30 +1915,21 @@ export function SurveyApp() {
           </View>
 
           <View style={styles.portfolioSection}>
-            <Text style={styles.portfolioSectionTitle}>유형별 점수</Text>
-            {careerTypes.map((type) => {
-              const profile = profiles[type];
-              return (
-                <View key={type} style={styles.portfolioScoreRow}>
-                  <Text style={styles.portfolioScoreLabel}>{profile.title}</Text>
-                  <View style={styles.portfolioScoreTrack}>
-                    <View
-                      style={[
-                        styles.portfolioScoreFill,
-                        { width: `${Math.min(Math.max(finalScores[type], 8), 100)}%` as const, backgroundColor: profile.color },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.portfolioScoreValue}>{finalScores[type]}</Text>
+            <Text style={styles.portfolioSectionTitle}>나를 나타내는 진로 키워드</Text>
+            <View style={styles.portfolioKeywordGrid}>
+              {[resultProfile.title, resultProfile.nickname, ...resultProfile.recommendedJobs.slice(0, 4)].map((keyword) => (
+                <View key={keyword} style={[styles.portfolioKeywordChip, { backgroundColor: resultProfile.softColor }]}>
+                  <Text style={[styles.portfolioKeywordText, { color: resultProfile.color }]}>{keyword}</Text>
                 </View>
-              );
-            })}
+              ))}
+            </View>
+            <Text style={styles.portfolioSummaryText}>{resultProfile.guide}</Text>
           </View>
 
           <View style={styles.portfolioSection}>
-            <Text style={styles.portfolioSectionTitle}>수행 경험</Text>
+            <Text style={styles.portfolioSectionTitle}>내가 완료한 활동</Text>
             {Object.values(experienceSubmissions).length === 0 ? (
-              <Text style={styles.portfolioEmptyText}>아직 인증된 경험이 없습니다. 진로 미션 인증을 완료하면 자동으로 추가됩니다.</Text>
+              <Text style={styles.portfolioEmptyText}>아직 기록된 활동이 없습니다. 활동 인증을 완료하면 이곳에 나의 경험이 쌓입니다.</Text>
             ) : (
               Object.values(experienceSubmissions).map((submission) => {
                 const mission = experienceMissions.find((item) => item.id === submission.missionId);
@@ -940,6 +1942,7 @@ export function SurveyApp() {
                   <View key={submission.missionId} style={styles.portfolioListItem}>
                     <Text style={styles.portfolioListTitle}>{mission.title}</Text>
                     <Text style={styles.portfolioListText}>{profiles[mission.type].title} · {submission.earnedXp}XP · {submission.completedAt}</Text>
+                    <Text style={styles.portfolioListLabel}>내가 남긴 소감</Text>
                     <Text style={styles.portfolioListText}>{submission.reflection}</Text>
                   </View>
                 );
@@ -948,9 +1951,9 @@ export function SurveyApp() {
           </View>
 
           <View style={styles.portfolioSection}>
-            <Text style={styles.portfolioSectionTitle}>성장 다이어리</Text>
+            <Text style={styles.portfolioSectionTitle}>내 성장 다이어리</Text>
             {sortedDiaryEntries.length === 0 ? (
-              <Text style={styles.portfolioEmptyText}>저장된 다이어리 페이지가 없습니다.</Text>
+              <Text style={styles.portfolioEmptyText}>저장된 다이어리 페이지가 없습니다. 활동 후 배운 점을 직접 기록해 보세요.</Text>
             ) : (
               latestDiaryEntries.slice(0, 3).map((entry) => (
                 <View key={entry.id} style={styles.portfolioListItem}>
@@ -962,7 +1965,7 @@ export function SurveyApp() {
           </View>
 
           <View style={styles.portfolioSection}>
-            <Text style={styles.portfolioSectionTitle}>추천 다음 활동</Text>
+            <Text style={styles.portfolioSectionTitle}>다음 목표로 해보고 싶은 활동</Text>
             {recommendedParentActivities.slice(0, 3).map((activity) => (
               <View key={activity.id} style={styles.portfolioListItem}>
                 <Text style={styles.portfolioListTitle}>{activity.title}</Text>
@@ -973,9 +1976,19 @@ export function SurveyApp() {
           </View>
 
           <View style={styles.portfolioSection}>
-            <Text style={styles.portfolioSectionTitle}>자동 분석 요약</Text>
+            <Text style={styles.portfolioSectionTitle}>나의 다음 목표</Text>
+            <TextInput
+              style={[styles.diaryInput, styles.portfolioGoalInput]}
+              multiline
+              placeholder="다음에 해보고 싶은 활동이나 목표를 직접 적어보세요."
+              placeholderTextColor="#8A9AAF"
+              value={portfolioNextGoal}
+              onChangeText={setPortfolioNextGoal}
+              textAlignVertical="top"
+            />
             <Text style={styles.portfolioSummaryText}>
-              {portfolioName || '아이'}는 현재 {resultProfile.title} 성향이 가장 높고, 실제 경험 데이터에서는 {profiles[strongestGrowthType].title} 영역이 가장 크게 성장했습니다. 다음 단계에서는 {profiles[weakestExperienceType].title} 경험을 보완하면 더 균형 있는 진로 탐색이 가능합니다.
+              {portfolioNextGoal.trim() ||
+                `나는 ${resultProfile.title} 성향을 바탕으로 ${resultProfile.recommendedJobs.slice(0, 2).join(', ')} 같은 분야를 더 알아볼 수 있습니다. 다음 활동에서는 ${profiles[weakestExperienceType].title} 경험도 하나 추가해 나의 가능성을 더 넓혀보겠습니다.`}
             </Text>
           </View>
 
@@ -1006,14 +2019,33 @@ export function SurveyApp() {
 
           <View style={styles.parentHero}>
             <Text style={styles.parentHeroIcon}>📈</Text>
-            <Text style={styles.parentHeroTitle}>AI 진로 성장 그래프</Text>
+            <Text style={styles.parentHeroTitle}>보호자 코칭 리포트</Text>
             <Text style={styles.parentHeroText}>
-              설문 결과와 실제 인증 활동을 누적해 아이의 흥미 변화와 다음 체험 방향을 보여줍니다.
+              아이의 검사 결과와 실제 활동 데이터를 바탕으로 강점, 부족 경험, 가정에서 도와줄 방향을 정리합니다.
             </Text>
           </View>
 
           <View style={styles.parentPanel}>
-            <Text style={styles.sectionTitle}>흥미 변화</Text>
+            <Text style={styles.sectionTitle}>요약 진단</Text>
+            <Text style={styles.parentReportText}>
+              현재 핵심 성향은 {resultProfile.title}이며, 실제 활동에서는 {profiles[strongestGrowthType].title} 영역의 성장이 가장 크게 나타났습니다. 다음 단계에서는 {profiles[weakestExperienceType].title} 경험을 의도적으로 보완하면 탐색 균형을 맞출 수 있습니다.
+            </Text>
+            <View style={styles.parentInsightGrid}>
+              {careerTypes.map((type) => {
+                const profile = profiles[type];
+                const delta = getScoreDelta(finalScores, surveyFinalScores, type);
+                return (
+                  <View key={type} style={styles.parentInsightCard}>
+                    <Text style={[styles.parentInsightValue, { color: profile.color }]}>{delta >= 0 ? '+' : ''}{delta}</Text>
+                    <Text style={styles.parentInsightLabel}>{profile.title} 변화</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.parentPanel}>
+            <Text style={styles.sectionTitle}>점수 변화 그래프</Text>
             <View style={styles.growthGraph}>
               {growthSnapshots.map((snapshot) => {
                 const maxScore = Math.max(...careerTypes.map((type) => snapshot.scores[type]), 1);
@@ -1042,28 +2074,21 @@ export function SurveyApp() {
           </View>
 
           <View style={styles.parentPanel}>
-            <Text style={styles.sectionTitle}>성장 요약</Text>
+            <Text style={styles.sectionTitle}>가정 코칭 팁</Text>
             <Text style={styles.parentReportText}>
-              현재 가장 강하게 성장한 영역은 {profiles[strongestGrowthType].title}입니다. 실제 인증 경험치 기준으로 {profiles[weakestExperienceType].title} 경험이 가장 부족합니다.
+              {resultProfile.title} 아이에게는 결과를 바로 평가하기보다 탐색 과정과 선택 이유를 묻는 대화가 효과적입니다. 활동 후에는 “무엇이 재미있었는지”, “어떤 역할이 편했는지”, “다음에는 무엇을 바꾸고 싶은지”를 짧게 정리하게 해주세요.
             </Text>
-            <View style={styles.parentInsightGrid}>
-              {careerTypes.map((type) => {
-                const profile = profiles[type];
-                const delta = getScoreDelta(finalScores, surveyFinalScores, type);
-                return (
-                  <View key={type} style={styles.parentInsightCard}>
-                    <Text style={[styles.parentInsightValue, { color: profile.color }]}>{delta >= 0 ? '+' : ''}{delta}</Text>
-                    <Text style={styles.parentInsightLabel}>{profile.title} 변화</Text>
-                  </View>
-                );
-              })}
+            <View style={styles.parentTipList}>
+              <Text style={styles.parentTipItem}>강점 강화: {resultProfile.guide}</Text>
+              <Text style={styles.parentTipItem}>균형 보완: {profiles[weakestExperienceType].title} 활동을 월 1회 이상 경험하게 해주세요.</Text>
+              <Text style={styles.parentTipItem}>기록 습관: 활동 직후 사진, 한 줄 소감, 배운 점을 남기게 해주세요.</Text>
             </View>
           </View>
 
           <View style={styles.parentPanel}>
-            <Text style={styles.sectionTitle}>수행 미션</Text>
+            <Text style={styles.sectionTitle}>관찰된 활동 근거</Text>
             {Object.values(experienceSubmissions).length === 0 ? (
-              <Text style={styles.parentReportText}>아직 인증된 경험 미션이 없습니다. 결과 화면에서 진로 미션 인증을 먼저 진행해 보세요.</Text>
+              <Text style={styles.parentReportText}>아직 인증된 경험 미션이 없습니다. 실제 활동 인증이 쌓이면 아이의 관심 변화 판단 근거로 활용할 수 있습니다.</Text>
             ) : (
               Object.values(experienceSubmissions).map((submission) => {
                 const mission = experienceMissions.find((item) => item.id === submission.missionId);
@@ -1083,9 +2108,9 @@ export function SurveyApp() {
           </View>
 
           <View style={styles.parentPanel}>
-            <Text style={styles.sectionTitle}>부족 경험</Text>
+            <Text style={styles.sectionTitle}>부족 경험과 지원 방향</Text>
             <Text style={styles.parentReportText}>
-              {profiles[weakestExperienceType].title} 활동 인증이 상대적으로 적습니다. 균형 있는 진로 탐색을 위해 아래 활동을 추천합니다.
+              {profiles[weakestExperienceType].title} 활동 인증이 상대적으로 적습니다. 아이의 선호를 바꾸려 하기보다 짧고 부담 없는 체험부터 추가하는 방식이 좋습니다.
             </Text>
           </View>
 
@@ -1103,9 +2128,30 @@ export function SurveyApp() {
           </View>
 
           <View style={styles.parentPanel}>
-            <Text style={styles.sectionTitle}>성장 리포트</Text>
+            <Text style={styles.sectionTitle}>대화 질문</Text>
+            <View style={styles.parentQuestionList}>
+              <Text style={styles.parentQuestionItem}>오늘 활동에서 가장 오래 집중한 순간은 언제였어?</Text>
+              <Text style={styles.parentQuestionItem}>혼자 하고 싶은 부분과 같이 하고 싶은 부분은 무엇이 달랐어?</Text>
+              <Text style={styles.parentQuestionItem}>다음에 비슷한 활동을 한다면 어떤 역할을 해보고 싶어?</Text>
+            </View>
+          </View>
+
+          <View style={styles.parentPanel}>
+            <Text style={styles.sectionTitle}>2주 실행 계획</Text>
+            <View style={styles.parentPlanRow}>
+              <Text style={styles.parentPlanStep}>1주차</Text>
+              <Text style={styles.parentPlanText}>{resultProfile.title} 강점과 연결된 활동 1개를 선택하고 짧은 소감을 남깁니다.</Text>
+            </View>
+            <View style={styles.parentPlanRow}>
+              <Text style={styles.parentPlanStep}>2주차</Text>
+              <Text style={styles.parentPlanText}>{profiles[weakestExperienceType].title} 보완 활동 1개를 가볍게 체험하고 아이의 반응을 관찰합니다.</Text>
+            </View>
+          </View>
+
+          <View style={styles.parentPanel}>
+            <Text style={styles.sectionTitle}>성장 리포트 저장</Text>
             <Text style={styles.parentReportText}>
-              이 리포트는 검사 점수, 인증 경험치, 수행 미션을 바탕으로 생성되었습니다. 출력 버튼을 누르면 브라우저의 PDF 저장 기능으로 리포트를 보관할 수 있습니다.
+              이 리포트는 검사 점수, 인증 경험치, 수행 활동을 바탕으로 생성되었습니다. PDF로 저장해 상담이나 가정 지도 자료로 활용할 수 있습니다.
             </Text>
             <Pressable
               style={({ pressed }) => [styles.parentPrintButton, pressed && styles.pressed]}
@@ -1116,6 +2162,192 @@ export function SurveyApp() {
               <Text style={styles.primaryButtonText}>성장 리포트 PDF로 저장</Text>
             </Pressable>
           </View>
+        </ScrollView>
+      )}
+
+      {screen === 'activityAi' && (
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+          <View style={styles.roadmapHeader}>
+            <Pressable
+              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+              android_ripple={{ color: '#1F2A4428' }}
+              accessibilityRole="button"
+              onPress={() => setScreen('home')}
+            >
+              <Text style={styles.backButtonText}>메인으로</Text>
+            </Pressable>
+            <Text style={styles.roadmapType}>활동추천AI</Text>
+          </View>
+
+          <View style={styles.activityAiHero}>
+            <Text style={styles.activityIntroIcon}>🤖</Text>
+            <Text style={styles.activityIntroTitle}>활동 조건을 입력해주세요</Text>
+            <Text style={styles.activityIntroText}>
+              입력완료를 누르면 성향, 희망지역, 연령, 관심 키워드 기준으로 AI처럼 추천 결과를 분석합니다.
+            </Text>
+          </View>
+
+          <View style={styles.activityAiForm}>
+            <Text style={styles.diaryLabel}>나이</Text>
+            <TextInput
+              style={styles.diaryInput}
+              placeholder="예: 12"
+              placeholderTextColor="#8A9AAF"
+              value={activityAiAge}
+              onChangeText={(value) => {
+                setActivityAiAge(value);
+                resetActivityAiOutput();
+              }}
+              keyboardType="number-pad"
+            />
+
+            <Text style={styles.diaryLabel}>희망지역</Text>
+            <View style={styles.activityAiChipGrid}>
+              {activityAiDistricts.map((district) => {
+                const selected = activityAiDistrict === district;
+                return (
+                  <Pressable
+                    key={district}
+                    style={({ pressed }) => [
+                      styles.activityAiChip,
+                      selected && styles.activityAiChipSelected,
+                      pressed && styles.pressed,
+                    ]}
+                    android_ripple={{ color: '#1F2A4424' }}
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setActivityAiDistrict(district);
+                      resetActivityAiOutput();
+                    }}
+                  >
+                    <Text style={[styles.activityAiChipText, selected && styles.activityAiChipTextSelected]}>{district}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.diaryLabel}>성향</Text>
+            <View style={styles.activityAiChipGrid}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.activityAiChip,
+                  activityAiType === 'auto' && styles.activityAiChipSelected,
+                  pressed && styles.pressed,
+                ]}
+                android_ripple={{ color: '#1F2A4424' }}
+                accessibilityRole="button"
+                onPress={() => {
+                  setActivityAiType('auto');
+                  resetActivityAiOutput();
+                }}
+              >
+                <Text style={[styles.activityAiChipText, activityAiType === 'auto' && styles.activityAiChipTextSelected]}>
+                  검사결과 자동
+                </Text>
+              </Pressable>
+              {careerTypes.map((type) => {
+                const selected = activityAiType === type;
+                return (
+                  <Pressable
+                    key={type}
+                    style={({ pressed }) => [
+                      styles.activityAiChip,
+                      selected && { backgroundColor: profiles[type].color, borderColor: profiles[type].color },
+                      pressed && styles.pressed,
+                    ]}
+                    android_ripple={{ color: '#1F2A4424' }}
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setActivityAiType(type);
+                      resetActivityAiOutput();
+                    }}
+                  >
+                    <Text style={[styles.activityAiChipText, selected && styles.activityAiChipTextSelected]}>{profiles[type].title}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.diaryLabel}>관심 키워드</Text>
+            <TextInput
+              style={styles.diaryInput}
+              placeholder="예: 과학, 영상, 봉사, 디자인"
+              placeholderTextColor="#8A9AAF"
+              value={activityAiInterest}
+              onChangeText={(value) => {
+                setActivityAiInterest(value);
+                resetActivityAiOutput();
+              }}
+            />
+
+            <Pressable
+              style={({ pressed }) => [styles.activityAiSubmitButton, pressed && styles.pressed]}
+              android_ripple={{ color: '#0000002E' }}
+              accessibilityRole="button"
+              onPress={submitActivityAi}
+            >
+              <Text style={styles.primaryButtonText}>입력완료</Text>
+            </Pressable>
+          </View>
+
+          {!activityAiSubmitted && (
+            <View style={styles.activityAiWaitingBox}>
+              <Text style={styles.activityAiWaitingTitle}>추천 대기 중</Text>
+              <Text style={styles.activityAiWaitingText}>조건을 입력하고 입력완료를 누르면 맞춤 활동이 표시됩니다.</Text>
+            </View>
+          )}
+
+          {activityAiSubmitted && (
+            <View style={styles.activityAiResultHeader}>
+              <Text style={styles.portfolioSectionTitle}>AI 추천 결과</Text>
+              <Text style={styles.activityAiResultMeta}>
+                기준 성향: {submittedActivityAiType ? profiles[submittedActivityAiType].title : '전체'} · 추천 {activityAiResults.length}개
+              </Text>
+            </View>
+          )}
+
+          {activityAiSubmitted && (
+          <View style={styles.activityList}>
+            {activityAiResults.map((recommendation, index) => {
+              const activity = recommendation.activity;
+              const mapOpen = activityAiMapActivityId === activity.id;
+              return (
+                <View key={activity.id} style={styles.activityAiResultCard}>
+                  <View style={styles.activityAiScoreLine}>
+                    <Text style={styles.activityAiRank}>추천 {index + 1}</Text>
+                    <Text style={styles.activityAiScore}>{recommendation.score}점</Text>
+                  </View>
+                  <Text style={styles.activityTitle}>{activity.title}</Text>
+                  <Text style={styles.activityInfo}>{activity.place} · {activity.district}</Text>
+                  <Text style={styles.activityAddress}>
+                    권장 {activity.minAge}-{activity.maxAge}세 · {activity.types.map((type) => profiles[type].title).join(', ')}
+                    {recommendation.distanceKm === null ? '' : ` · 약 ${recommendation.distanceKm}km`}
+                  </Text>
+                  <View style={styles.activityAiReasonBox}>
+                    {recommendation.reasons.map((reason) => (
+                      <Text key={reason} style={styles.activityAiReasonText}>• {reason}</Text>
+                    ))}
+                  </View>
+                  <Pressable
+                    style={({ pressed }) => [styles.activityDetailMapButton, pressed && styles.pressed]}
+                    android_ripple={{ color: '#0000002E' }}
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setActivityAiMapActivityId(mapOpen ? null : activity.id);
+                    }}
+                  >
+                    <Text style={styles.activityDetailMapButtonText}>{mapOpen ? '지도 닫기' : '지도 보기'}</Text>
+                  </Pressable>
+                  {mapOpen && (
+                    <View style={styles.activityAiInlineMap}>
+                      <KakaoActivityMap activities={[activity]} />
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+          )}
         </ScrollView>
       )}
 
@@ -1177,6 +2409,228 @@ export function SurveyApp() {
               </View>
             ))}
           </View>
+        </ScrollView>
+      )}
+
+      {screen === 'pointShop' && (
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+          <View style={styles.roadmapHeader}>
+            <Pressable
+              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+              android_ripple={{ color: '#1F2A4428' }}
+              accessibilityRole="button"
+              onPress={() => setScreen('home')}
+            >
+              <Text style={styles.backButtonText}>메인으로</Text>
+            </Pressable>
+            <Text style={styles.roadmapType}>포인트 사용</Text>
+          </View>
+
+          <View style={styles.pointShopHero}>
+            <Text style={styles.pointShopIcon}>🎟️</Text>
+            <Text style={styles.pointShopTitle}>모은 포인트로 체험 활동에 응모하세요</Text>
+            <Text style={styles.pointShopText}>현재 사용 가능 포인트 {availableCareerPoints}점 · 사용한 포인트 {spentRewardPoints}점</Text>
+          </View>
+
+          <View style={styles.rewardList}>
+            {gameRewards.map((reward) => {
+              const applied = Boolean(rewardEntries[reward.id]);
+              const disabled = applied || availableCareerPoints < reward.cost;
+              return (
+                <View key={reward.id} style={styles.rewardCard}>
+                  <View style={styles.rewardCardHeader}>
+                    <View style={styles.rewardCardTextWrap}>
+                      <Text style={styles.rewardTitle}>{reward.title}</Text>
+                      <Text style={styles.rewardDescription}>{reward.description}</Text>
+                    </View>
+                    <Text style={styles.rewardCost}>{reward.cost}P</Text>
+                  </View>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.rewardApplyButton,
+                      disabled && styles.disabledButton,
+                      pressed && !disabled && styles.pressed,
+                    ]}
+                    android_ripple={{ color: '#0000002E' }}
+                    accessibilityRole="button"
+                    disabled={disabled}
+                    onPress={() => applyReward(reward)}
+                  >
+                    <Text style={styles.primaryButtonText}>{applied ? '응모완료' : '응모하기'}</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+
+          {gameAnswerStatus ? <Text style={styles.gameStatusText}>{gameAnswerStatus}</Text> : null}
+        </ScrollView>
+      )}
+
+      {screen === 'game' && (
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+          {gameView === 'main' && (
+            <>
+              <View style={styles.gameMainHero}>
+                <Text style={styles.gameMainIcon}>🎮</Text>
+                <Text style={styles.gameTitle}>진로월드</Text>
+                <Text style={styles.gameSubtitle}>Lv.{gameLevel} 꿈 탐험가 · EXP {currentLevelExp} / 100</Text>
+                <View style={styles.gamePointPanel}>
+                  <Text style={styles.gamePointLabel}>현재 포인트</Text>
+                  <Text style={styles.gamePointValue}>{availableCareerPoints}P</Text>
+                  <Text style={styles.gamePointText}>완료 미션 {completedGameMissionCount}개 · 사용한 포인트 {spentRewardPoints}P</Text>
+                </View>
+              </View>
+
+              <Pressable
+                style={({ pressed }) => [styles.gameMainButton, pressed && styles.pressed]}
+                android_ripple={{ color: '#0000002E' }}
+                accessibilityRole="button"
+                onPress={() => {
+                  setGameView('map');
+                  setGameAnswerStatus('');
+                }}
+              >
+                <Text style={styles.primaryButtonText}>마이홈으로 이동!</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.gameMainSecondaryButton, pressed && styles.pressed]}
+                android_ripple={{ color: '#1F2A4424' }}
+                accessibilityRole="button"
+                onPress={() => setScreen('pointShop')}
+              >
+                <Text style={styles.gameMainSecondaryButtonText}>포인트 사용하기</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}
+                android_ripple={{ color: '#1F2A4424' }}
+                accessibilityRole="button"
+                onPress={() => setScreen('home')}
+              >
+                <Text style={styles.textButtonLabel}>앱 메인으로</Text>
+              </Pressable>
+            </>
+          )}
+
+          {gameView !== 'main' && (
+            <>
+              <View style={styles.gameWorldHeader}>
+                <Pressable
+                  style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+                  android_ripple={{ color: '#1F2A4428' }}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setGameView('main');
+                    setGameAnswerStatus('');
+                  }}
+                >
+                  <Text style={styles.backButtonText}>진로월드 메인으로</Text>
+                </Pressable>
+                <View style={styles.gameWorldPointBox}>
+                  <Text style={styles.gameWorldPointText}>현재 포인트 {availableCareerPoints}P</Text>
+                </View>
+              </View>
+
+              <View style={styles.worldMap}>
+                {gameVillages.map((village) => {
+                  const unlocked = unlockedGameVillageIds.has(village.id);
+                  const selected = gameView === 'mission' && selectedGameVillage.id === village.id;
+                  return (
+                    <Pressable
+                      key={village.id}
+                      style={({ pressed }) => [
+                        styles.villageNode,
+                        {
+                          top: village.mapPosition.top as `${number}%`,
+                          left: village.mapPosition.left as `${number}%`,
+                          backgroundColor: unlocked ? village.softColor : '#E6E9EE',
+                          borderColor: selected ? village.color : unlocked ? '#FFFFFF' : '#C8D0DA',
+                        },
+                        selected && styles.villageNodeSelected,
+                        pressed && styles.pressed,
+                      ]}
+                      android_ripple={{ color: '#1F2A4424' }}
+                      accessibilityRole="button"
+                      onPress={() => openGameVillage(village)}
+                    >
+                      <Text style={styles.villageIcon}>{unlocked ? village.icon : '🔒'}</Text>
+                      <Text style={[styles.villageName, unlocked && { color: village.color }]}>{village.title}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {gameAnswerStatus && gameView === 'map' ? <Text style={styles.gameStatusText}>{gameAnswerStatus}</Text> : null}
+            </>
+          )}
+
+          {gameView === 'mission' && (
+            <>
+              <View style={[styles.npcPanel, { borderColor: selectedGameVillage.color }]}>
+                <Text style={styles.npcIcon}>{selectedGameVillage.icon}</Text>
+                <View style={styles.npcTextWrap}>
+                  <Text style={[styles.npcName, { color: selectedGameVillage.color }]}>{selectedGameVillage.npc}</Text>
+                  <Text style={styles.npcText}>{selectedGameVillage.title}의 {selectedGameVillage.theme} 미션</Text>
+                </View>
+              </View>
+
+              <View style={styles.gameMissionGrid}>
+                {selectedGameVillage.missions.map((mission) => {
+                  const selected = selectedGameMission.id === mission.id;
+                  const completed = Boolean(completedGameMissions[mission.id]);
+                  return (
+                    <Pressable
+                      key={mission.id}
+                      style={({ pressed }) => [
+                        styles.gameMissionCard,
+                        selected && { borderColor: selectedGameVillage.color, backgroundColor: selectedGameVillage.softColor },
+                        pressed && styles.pressed,
+                      ]}
+                      android_ripple={{ color: '#1F2A4424' }}
+                      accessibilityRole="button"
+                      onPress={() => selectGameMission(mission)}
+                    >
+                      <Text style={[styles.gameMissionKind, { color: selectedGameVillage.color }]}>
+                        {mission.kind === 'real' ? '실제 활동' : '게임 미션'}
+                      </Text>
+                      <Text style={styles.gameMissionTitle}>{mission.title}</Text>
+                      <Text style={styles.gameMissionReward}>
+                        EXP +{mission.reward.exp} · {mission.reward.points}P · {completed ? '완료' : '대기'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View style={styles.gameQuestPanel}>
+                <Text style={styles.sectionTitle}>{selectedGameMission.title}</Text>
+                <Text style={styles.bodyText}>{selectedGameMission.prompt}</Text>
+                <Text style={styles.gameRewardNotice}>
+                  보상: {selectedGameMission.reward.stat}, 경험치 +{selectedGameMission.reward.exp}, 포인트 +{selectedGameMission.reward.points}
+                </Text>
+                {selectedGameMission.choices.map((choice, index) => (
+                  <Pressable
+                    key={choice}
+                    style={({ pressed }) => [
+                      styles.gameChoiceButton,
+                      completedGameMissions[selectedGameMission.id] && index === selectedGameMission.answerIndex && {
+                        borderColor: selectedGameVillage.color,
+                        backgroundColor: selectedGameVillage.softColor,
+                      },
+                      pressed && !completedGameMissions[selectedGameMission.id] && styles.pressed,
+                    ]}
+                    android_ripple={{ color: '#1F2A4424' }}
+                    accessibilityRole="button"
+                    disabled={Boolean(completedGameMissions[selectedGameMission.id])}
+                    onPress={() => completeGameMission(index)}
+                  >
+                    <Text style={styles.gameChoiceText}>{choice}</Text>
+                  </Pressable>
+                ))}
+                {gameAnswerStatus ? <Text style={styles.gameStatusText}>{gameAnswerStatus}</Text> : null}
+              </View>
+            </>
+          )}
         </ScrollView>
       )}
 
@@ -1344,7 +2798,17 @@ export function SurveyApp() {
             >
               <Text style={styles.backButtonText}>메인으로</Text>
             </Pressable>
-            <Text style={[styles.roadmapType, { color: resultProfile.color }]}>검사 결과</Text>
+            <View style={styles.resultHeaderActions}>
+              <Text style={[styles.roadmapType, { color: resultProfile.color }]}>검사 결과</Text>
+              <Pressable
+                style={({ pressed }) => [styles.topSmallButton, pressed && styles.pressed]}
+                android_ripple={{ color: '#1F2A4428' }}
+                accessibilityRole="button"
+                onPress={restartSurvey}
+              >
+                <Text style={styles.topSmallButtonText}>다시 검사하기</Text>
+              </Pressable>
+            </View>
           </View>
 
           <View style={[styles.resultHero, { backgroundColor: resultProfile.softColor }]}>
@@ -1398,18 +2862,7 @@ export function SurveyApp() {
           <Pressable
             style={({ pressed }) => [
               styles.primaryButton,
-              { backgroundColor: '#1F2A44', marginBottom: 10 },
-              pressed && styles.pressed,
-            ]}
-            android_ripple={{ color: '#0000002E' }}
-            accessibilityRole="button"
-            onPress={restartSurvey}
-          >
-            <Text style={styles.primaryButtonText}>다시 검사하기</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
+              styles.resultRoadmapButton,
               { backgroundColor: resultProfile.color },
               pressed && styles.pressed,
             ]}
@@ -1417,7 +2870,7 @@ export function SurveyApp() {
             accessibilityRole="button"
             onPress={() => setScreen('roadmap')}
           >
-            <Text style={styles.primaryButtonText}>로드맵을 확인해보세요!</Text>
+            <Text style={styles.resultRoadmapButtonText}>로드맵 확인하기</Text>
           </Pressable>
         </ScrollView>
       )}
@@ -1617,7 +3070,21 @@ export function SurveyApp() {
                   <Text style={[styles.timelineStep, { color: resultProfile.color }]}>{item.step}</Text>
                   <Text style={styles.timelineTitle}>{item.title}</Text>
                   <Text style={styles.timelinePlace}>{item.place}</Text>
-                  <Text style={styles.timelineQuest}>{item.quest}</Text>
+                  <View style={styles.timelineQuestRow}>
+                    <Text style={styles.timelineQuest}>{item.quest}</Text>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.timelineCertButton,
+                        { backgroundColor: resultProfile.color },
+                        pressed && styles.pressed,
+                      ]}
+                      android_ripple={{ color: '#0000002E' }}
+                      accessibilityRole="button"
+                      onPress={() => openRoadmapExperienceMission(index)}
+                    >
+                      <Text style={styles.timelineCertButtonText}>활동 인증하기</Text>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             ))}
@@ -1625,22 +3092,20 @@ export function SurveyApp() {
 
           <Pressable
             style={({ pressed }) => [
-              styles.primaryButton,
-              { backgroundColor: '#1F2A44', marginBottom: 10 },
+              styles.roadmapMapButton,
               pressed && styles.pressed,
             ]}
             android_ripple={{ color: '#0000002E' }}
             accessibilityRole="button"
-            onPress={() => {
-              setExperienceEntrySource('roadmap');
-              setScreen('experience');
-            }}
+            onPress={() => setScreen('activityMap')}
           >
-            <Text style={styles.primaryButtonText}>진로 미션 인증하기</Text>
+            <Text style={styles.roadmapMapButtonText}>다른 활동을 더 확인해보세요!</Text>
+            <Text style={styles.roadmapMapButtonTitle}>서울진로지도</Text>
           </Pressable>
           <Pressable
             style={({ pressed }) => [
               styles.primaryButton,
+              styles.roadmapPuzzleButton,
               { backgroundColor: resultProfile.color },
               pressed && styles.pressed,
             ]}
@@ -1648,6 +3113,7 @@ export function SurveyApp() {
             accessibilityRole="button"
             onPress={() => {
               setMissionEntrySource('roadmap');
+              setSelectedPuzzleType(puzzleResultType);
               setScreen('mission');
             }}
           >
@@ -1675,17 +3141,43 @@ export function SurveyApp() {
             >
               <Text style={styles.backButtonText}>{missionEntrySource === 'home' ? '메인으로' : '로드맵으로'}</Text>
             </Pressable>
-            <Text style={[styles.roadmapType, { color: resultProfile.color }]}>퍼즐 미션</Text>
+            <Text style={[styles.roadmapType, { color: activePuzzleProfile.color }]}>퍼즐 미션</Text>
           </View>
 
-          <View style={[styles.fairyRoadmap, { borderColor: resultProfile.color }]}>
+          <View style={styles.puzzleTypeTabs}>
+            {puzzleTypes.map((type) => {
+              const profile = profiles[type];
+              const selected = activePuzzleType === type;
+              return (
+                <Pressable
+                  key={type}
+                  style={({ pressed }) => [
+                    styles.puzzleTypeTab,
+                    selected && { backgroundColor: profile.color, borderColor: profile.color },
+                    pressed && styles.pressed,
+                  ]}
+                  android_ripple={{ color: '#1F2A4424' }}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setSelectedPuzzleType(type);
+                    setSelectedMissionIndex(0);
+                    setRecordingMissionIndex(null);
+                  }}
+                >
+                  <Text style={[styles.puzzleTypeTabText, selected && styles.puzzleTypeTabTextSelected]}>{profile.title}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={[styles.fairyRoadmap, { borderColor: activePuzzleProfile.color }]}>
             <View style={styles.fairySky}>
               <Text style={styles.fairyCloud}>퍼즐 {collectedPuzzleCount}/4</Text>
               <Text style={styles.fairyStar}>{growthPoints}포인트</Text>
             </View>
-            <Text style={styles.fairyIcon}>{resultProfile.icon}</Text>
-            <Text style={styles.fairyTitle}>{resultProfile.nickname}의 성장 모험</Text>
-            <Text style={styles.fairyStory}>{resultProfile.missionStory}</Text>
+            <Text style={styles.fairyIcon}>{activePuzzleProfile.icon}</Text>
+            <Text style={styles.fairyTitle}>{activePuzzleProfile.nickname}의 성장 모험</Text>
+            <Text style={styles.fairyStory}>{activePuzzleProfile.missionStory}</Text>
             <Text style={styles.puzzleGuideText}>검사를 완료하고 퍼즐 1개를 획득했어요!</Text>
             <Text style={styles.puzzleGuideText}>퍼즐을 1개 획득할 때마다 2포인트가 지급돼요.</Text>
             <Text style={styles.puzzleGuideText}>나머지 퍼즐을 모두 맞추고 성장 다이어리를 획득해보세요!</Text>
@@ -1701,11 +3193,11 @@ export function SurveyApp() {
                     key={piece}
                     style={[
                       styles.puzzlePiece,
-                      collected && { backgroundColor: resultProfile.color, borderColor: resultProfile.color },
+                      collected && { backgroundColor: activePuzzleProfile.color, borderColor: activePuzzleProfile.color },
                     ]}
                   >
                     <Text style={[styles.puzzlePieceText, collected && styles.puzzlePieceTextActive]}>
-                      {collected ? (piece === 0 ? resultProfile.icon : piece) : '잠금'}
+                      {collected ? (piece === 0 ? activePuzzleProfile.icon : piece) : '잠금'}
                     </Text>
                   </View>
                 );
@@ -1716,7 +3208,7 @@ export function SurveyApp() {
               <View style={styles.completedGiftBox}>
                 <Text style={styles.completedGiftTitle}>성향별 이미지가 완성됐어요!</Text>
                 <Text style={styles.completedGiftText}>
-                  모든 퍼즐 조각을 모았습니다. 성장 다이어리를 획득하면 스스로 찾은 활동도 기록할 수 있어요. 처음 다이어리를 작성하면 4포인트가 추가 지급됩니다.
+                  모든 퍼즐 조각을 모았습니다. {diaryUnlocked ? '성장 다이어리에 바로 기록할 수 있어요.' : '성장 다이어리를 획득하면 스스로 찾은 활동도 기록할 수 있어요.'} 처음 다이어리를 작성하면 4포인트가 추가 지급됩니다.
                 </Text>
                 <Pressable
                   style={({ pressed }) => [styles.diaryGiftButton, pressed && styles.pressed]}
@@ -1724,7 +3216,7 @@ export function SurveyApp() {
                   accessibilityRole="button"
                   onPress={claimGrowthDiary}
                 >
-                  <Text style={styles.primaryButtonText}>성장 다이어리 획득하기</Text>
+                  <Text style={styles.primaryButtonText}>{diaryUnlocked ? '성장 다이어리 작성하기' : '성장 다이어리 획득하기'}</Text>
                 </Pressable>
               </View>
             )}
@@ -1745,7 +3237,7 @@ export function SurveyApp() {
                     disabled={!unlocked}
                     onPress={() => setSelectedMissionIndex(selected ? null : index)}
                   >
-                    <View style={[styles.missionBadge, { backgroundColor: unlocked ? resultProfile.color : '#AAB7C4' }]}>
+                    <View style={[styles.missionBadge, { backgroundColor: unlocked ? activePuzzleProfile.color : '#AAB7C4' }]}>
                       <Text style={styles.missionBadgeText}>{completed ? '완료' : unlocked ? index + 1 : '잠금'}</Text>
                     </View>
                     <View style={styles.missionButtonTextWrap}>
@@ -1786,7 +3278,7 @@ export function SurveyApp() {
                             <Pressable
                               style={({ pressed }) => [
                                 styles.secondaryButton,
-                                { backgroundColor: resultProfile.color },
+                                { backgroundColor: activePuzzleProfile.color },
                                 !reflectionDraft.trim() && styles.disabledButton,
                                 pressed && reflectionDraft.trim() && styles.pressed,
                               ]}
@@ -1819,7 +3311,7 @@ export function SurveyApp() {
                             <Pressable
                               style={({ pressed }) => [
                                 styles.missionSuccessButton,
-                                { backgroundColor: resultProfile.color },
+                                { backgroundColor: activePuzzleProfile.color },
                                 pressed && styles.pressed,
                               ]}
                               android_ripple={{ color: '#0000002E' }}
