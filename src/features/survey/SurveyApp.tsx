@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { answerOptions, careerTypes, experienceMissions, maxTypeScore, profiles, questions, seoulCareerActivities } from './data';
 import {
@@ -116,6 +116,9 @@ type ActivityRecommendation = {
   reasons: string[];
 };
 
+const gameHomeButtonImage = require('../../../홈버튼.png');
+const villageMapImage = require('../../../마을_이미지.png');
+
 const gameVillages: GameVillage[] = [
   {
     id: 'research',
@@ -125,7 +128,7 @@ const gameVillages: GameVillage[] = [
     icon: '🔬',
     color: '#2F80ED',
     softColor: '#EAF3FF',
-    mapPosition: { top: '14%', left: '18%' },
+    mapPosition: { top: '8%', left: '39%' },
     missions: [
       {
         id: 'research-cause',
@@ -158,13 +161,13 @@ const gameVillages: GameVillage[] = [
   },
   {
     id: 'creation',
-    title: '창작마을',
+    title: '예술마을',
     theme: '아이디어와 표현',
     npc: '디자이너',
     icon: '🎨',
     color: '#E0568A',
     softColor: '#FFF0F5',
-    mapPosition: { top: '50%', left: '12%' },
+    mapPosition: { top: '28%', left: '75%' },
     missions: [
       {
         id: 'creation-color',
@@ -203,7 +206,7 @@ const gameVillages: GameVillage[] = [
     icon: '⚖️',
     color: '#27AE60',
     softColor: '#EAF8EF',
-    mapPosition: { top: '26%', left: '58%' },
+    mapPosition: { top: '77%', left: '70%' },
     missions: [
       {
         id: 'communication-fair',
@@ -242,7 +245,7 @@ const gameVillages: GameVillage[] = [
     icon: '🩺',
     color: '#9B51E0',
     softColor: '#F3ECFF',
-    mapPosition: { top: '60%', left: '50%' },
+    mapPosition: { top: '77%', left: '19%' },
     missions: [
       {
         id: 'care-first',
@@ -281,7 +284,7 @@ const gameVillages: GameVillage[] = [
     icon: '🚒',
     color: '#F2994A',
     softColor: '#FFF3E6',
-    mapPosition: { top: '18%', left: '78%' },
+    mapPosition: { top: '29%', left: '6%' },
     missions: [
       {
         id: 'field-exit',
@@ -703,6 +706,7 @@ export function SurveyApp() {
   const [spentRewardPoints, setSpentRewardPoints] = useState(0);
   const [rewardEntries, setRewardEntries] = useState<Record<string, boolean>>({});
   const pointPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activityMapScrollRef = useRef<ScrollView | null>(null);
 
   const currentQuestion = questions[currentIndex];
   const tieBreakerQuestions = useMemo(() => getTieBreakerQuestions(tiedTypes), [tiedTypes]);
@@ -1240,6 +1244,9 @@ export function SurveyApp() {
   const openActivityDetailMap = (activityId: string) => {
     setSelectedMapActivityId(activityId);
     setShowActivityMap(true);
+    setTimeout(() => {
+      activityMapScrollRef.current?.scrollTo({ y: 0, animated: true });
+    }, 0);
   };
 
   const resetActivityAiOutput = () => {
@@ -1358,11 +1365,6 @@ export function SurveyApp() {
   };
 
   const openGameVillage = (village: GameVillage) => {
-    if (!unlockedGameVillageIds.has(village.id)) {
-      setGameAnswerStatus('레벨을 올리면 새로운 마을이 열립니다.');
-      return;
-    }
-
     setSelectedGameVillageId(village.id);
     setSelectedGameMissionId(village.missions[0].id);
     setGameView('mission');
@@ -2350,7 +2352,7 @@ export function SurveyApp() {
       )}
 
       {screen === 'activityMap' && (
-        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={activityMapScrollRef} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
           <View style={styles.roadmapHeader}>
             <Pressable
               style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
@@ -2376,6 +2378,9 @@ export function SurveyApp() {
               onPress={() => {
                 if (!showActivityMap) {
                   setSelectedMapActivityId(null);
+                  setTimeout(() => {
+                    activityMapScrollRef.current?.scrollTo({ y: 0, animated: true });
+                  }, 0);
                 }
                 setShowActivityMap(!showActivityMap);
               }}
@@ -2481,15 +2486,17 @@ export function SurveyApp() {
               </View>
 
               <Pressable
-                style={({ pressed }) => [styles.gameMainButton, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.gameMainImageButton, pressed && styles.pressed]}
                 android_ripple={{ color: '#0000002E' }}
                 accessibilityRole="button"
+                accessibilityLabel="홈으로 이동하기"
                 onPress={() => {
                   setGameView('map');
                   setGameAnswerStatus('');
                 }}
               >
-                <Text style={styles.primaryButtonText}>마이홈으로 이동!</Text>
+                <Image source={gameHomeButtonImage} style={styles.gameMainHomeImage} resizeMode="contain" />
+                <Text style={styles.gameMainImageButtonText}>홈으로 이동하기</Text>
               </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.gameMainSecondaryButton, pressed && styles.pressed]}
@@ -2530,8 +2537,19 @@ export function SurveyApp() {
               </View>
 
               <View style={styles.worldMap}>
+                <Image source={villageMapImage} style={styles.worldMapImage} resizeMode="cover" />
+                <Pressable
+                  style={({ pressed }) => [styles.mapHomeNode, pressed && styles.pressed]}
+                  android_ripple={{ color: '#1F2A4424' }}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setGameView('main');
+                    setGameAnswerStatus('');
+                  }}
+                >
+                  <Text style={styles.mapHomeText}>홈</Text>
+                </Pressable>
                 {gameVillages.map((village) => {
-                  const unlocked = unlockedGameVillageIds.has(village.id);
                   const selected = gameView === 'mission' && selectedGameVillage.id === village.id;
                   return (
                     <Pressable
@@ -2541,8 +2559,8 @@ export function SurveyApp() {
                         {
                           top: village.mapPosition.top as `${number}%`,
                           left: village.mapPosition.left as `${number}%`,
-                          backgroundColor: unlocked ? village.softColor : '#E6E9EE',
-                          borderColor: selected ? village.color : unlocked ? '#FFFFFF' : '#C8D0DA',
+                          backgroundColor: village.softColor,
+                          borderColor: selected ? village.color : '#FFFFFF',
                         },
                         selected && styles.villageNodeSelected,
                         pressed && styles.pressed,
@@ -2551,8 +2569,8 @@ export function SurveyApp() {
                       accessibilityRole="button"
                       onPress={() => openGameVillage(village)}
                     >
-                      <Text style={styles.villageIcon}>{unlocked ? village.icon : '🔒'}</Text>
-                      <Text style={[styles.villageName, unlocked && { color: village.color }]}>{village.title}</Text>
+                      <Text style={styles.villageIcon}>{village.icon}</Text>
+                      <Text style={[styles.villageName, { color: village.color }]}>{village.title}</Text>
                     </Pressable>
                   );
                 })}
