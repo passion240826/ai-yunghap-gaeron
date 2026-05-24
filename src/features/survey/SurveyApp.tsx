@@ -563,9 +563,7 @@ function getProofLabel(mission: ExperienceMission) {
 
 function KakaoActivityMap({ activities }: { activities: SeoulCareerActivity[] }) {
   const [mapStatus, setMapStatus] = useState('지도를 준비하고 있어요.');
-  const kakaoAppKey = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
-    ?.EXPO_PUBLIC_KAKAO_MAP_API_KEY;
-
+  const kakaoAppKey = "df31ad748756f9b2386c3c2ab1dd6692"
   useEffect(() => {
     const documentRef = (globalThis as { document?: Document }).document;
     const windowRef = globalThis as typeof globalThis & { kakao?: any };
