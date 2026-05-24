@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 
 import { answerOptions, careerTypes, experienceMissions, maxTypeScore, profiles, questions, seoulCareerActivities } from './data';
 import {
@@ -93,6 +94,10 @@ type GameVillage = {
   icon: string;
   color: string;
   softColor: string;
+  careerGroup: string;
+  personality: string;
+  growthActivities: string[];
+  roadmap: string[];
   mapPosition: {
     top: string;
     left: string;
@@ -118,6 +123,27 @@ type ActivityRecommendation = {
 
 const gameHomeButtonImage = require('../../../홈버튼.png');
 const villageMapImage = require('../../../마을_이미지.png');
+const investigativeAiResearcherImage = require('../../../assets/career-results/investigative-ai-researcher.png');
+const investigativeSoftwareDeveloperImage = require('../../../assets/career-results/investigative-software-developer.png');
+const artisticBallerinaImage = require('../../../assets/career-results/artistic-ballerina.png');
+const artisticFashionDesignerImage = require('../../../assets/career-results/artistic-fashion-designer.png');
+const socialCounselorImage = require('../../../assets/career-results/social-counselor.png');
+const socialTeacherImage = require('../../../assets/career-results/social-teacher.png');
+
+const resultCareerJobs: Record<CareerType, { name: string; image: ImageSourcePropType }[]> = {
+  investigative: [
+    { name: 'AI 연구원', image: investigativeAiResearcherImage },
+    { name: '소프트웨어 개발자', image: investigativeSoftwareDeveloperImage },
+  ],
+  artistic: [
+    { name: '발레리나', image: artisticBallerinaImage },
+    { name: '패션 디자이너', image: artisticFashionDesignerImage },
+  ],
+  social: [
+    { name: '상담사', image: socialCounselorImage },
+    { name: '교사', image: socialTeacherImage },
+  ],
+};
 
 const gameVillages: GameVillage[] = [
   {
@@ -128,6 +154,10 @@ const gameVillages: GameVillage[] = [
     icon: '🔬',
     color: '#2F80ED',
     softColor: '#EAF3FF',
+    careerGroup: '과학·AI·데이터·의료 연구 직업군',
+    personality: '궁금한 점을 끝까지 파고들고, 자료와 근거를 비교하며 답을 찾는 성향',
+    growthActivities: ['관찰 일지 쓰기', '작은 실험 설계하기', '코딩·로봇 체험 참여'],
+    roadmap: ['질문 만들기', '자료 조사', '실험·코딩 결과물 만들기'],
     mapPosition: { top: '8%', left: '39%' },
     missions: [
       {
@@ -167,6 +197,10 @@ const gameVillages: GameVillage[] = [
     icon: '🎨',
     color: '#E0568A',
     softColor: '#FFF0F5',
+    careerGroup: '디자인·콘텐츠·영상·공연기획 직업군',
+    personality: '새로운 아이디어를 떠올리고 색, 이미지, 이야기로 표현하는 성향',
+    growthActivities: ['아이디어 스케치', '카드뉴스·영상 만들기', '작품 발표와 피드백 받기'],
+    roadmap: ['좋아하는 작품 분석', '나만의 콘텐츠 제작', '공모전·전시 도전'],
     mapPosition: { top: '28%', left: '75%' },
     missions: [
       {
@@ -206,6 +240,10 @@ const gameVillages: GameVillage[] = [
     icon: '⚖️',
     color: '#27AE60',
     softColor: '#EAF8EF',
+    careerGroup: '법·교육·상담·미디어 소통 직업군',
+    personality: '상대의 입장을 듣고 공정하게 조정하며, 생각을 말과 글로 전달하는 성향',
+    growthActivities: ['인터뷰 질문 만들기', '토론·발표 연습', '갈등 조정 역할 맡기'],
+    roadmap: ['경청 연습', '토론 참여', '인터뷰·발표 포트폴리오 만들기'],
     mapPosition: { top: '77%', left: '70%' },
     missions: [
       {
@@ -245,6 +283,10 @@ const gameVillages: GameVillage[] = [
     icon: '🩺',
     color: '#9B51E0',
     softColor: '#F3ECFF',
+    careerGroup: '보건·복지·심리·생활지원 직업군',
+    personality: '사람의 몸과 마음 상태를 살피고 필요한 도움을 연결하는 성향',
+    growthActivities: ['건강 캠페인 만들기', '봉사 활동 기록하기', '마음 건강 대화법 연습'],
+    roadmap: ['기본 안전·건강 지식 익히기', '돌봄 활동 실천', '보건·복지 직업인 인터뷰'],
     mapPosition: { top: '77%', left: '19%' },
     missions: [
       {
@@ -284,6 +326,10 @@ const gameVillages: GameVillage[] = [
     icon: '🚒',
     color: '#F2994A',
     softColor: '#FFF3E6',
+    careerGroup: '안전·공학·스포츠·현장 운영 직업군',
+    personality: '상황을 빠르게 파악하고 몸으로 실행하며 팀과 함께 문제를 해결하는 성향',
+    growthActivities: ['안전 점검표 작성', '팀 프로젝트 역할 맡기', '체험형 캠프 참여'],
+    roadmap: ['현장 규칙 익히기', '팀 실행 미션', '안전·기술 체험 인증'],
     mapPosition: { top: '29%', left: '6%' },
     missions: [
       {
@@ -775,15 +821,8 @@ export function SurveyApp() {
   const availableCareerPoints = Math.max(totalCareerPoints - spentRewardPoints, 0);
   const initialGameVillageId = getInitialVillageId(surveyResultType);
   const unlockedGameVillageIds = useMemo(() => {
-    const ids = new Set<GameVillageId>([initialGameVillageId]);
-    const orderedVillages = gameVillages.map((village) => village.id).filter((id) => id !== initialGameVillageId);
-
-    for (let index = 0; index < Math.min(gameLevel - 1, orderedVillages.length); index += 1) {
-      ids.add(orderedVillages[index]);
-    }
-
-    return ids;
-  }, [gameLevel, initialGameVillageId]);
+    return new Set<GameVillageId>([initialGameVillageId]);
+  }, [initialGameVillageId]);
   const selectedGameVillage = gameVillages.find((village) => village.id === selectedGameVillageId) ?? gameVillages[0];
   const selectedGameMission =
     selectedGameVillage.missions.find((mission) => mission.id === selectedGameMissionId) ?? selectedGameVillage.missions[0];
@@ -1365,6 +1404,12 @@ export function SurveyApp() {
   };
 
   const openGameVillage = (village: GameVillage) => {
+    if (!unlockedGameVillageIds.has(village.id)) {
+      setGameAnswerStatus('검사 결과에 맞는 마을만 먼저 열려요.');
+      setGameView('map');
+      return;
+    }
+
     setSelectedGameVillageId(village.id);
     setSelectedGameMissionId(village.missions[0].id);
     setGameView('mission');
@@ -1612,6 +1657,16 @@ export function SurveyApp() {
           <Text style={styles.pointPopupText}>{pointPopupText}</Text>
         </View>
       ) : null}
+      {screen !== 'home' && (
+        <Pressable
+          style={({ pressed }) => [styles.floatingHomeButton, pressed && styles.pressed]}
+          android_ripple={{ color: '#0000002E' }}
+          accessibilityRole="button"
+          onPress={() => setScreen('home')}
+        >
+          <Text style={styles.floatingHomeButtonText}>메인으로</Text>
+        </Pressable>
+      )}
       {screen === 'home' && (
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
@@ -2491,7 +2546,10 @@ export function SurveyApp() {
                 accessibilityRole="button"
                 accessibilityLabel="홈으로 이동하기"
                 onPress={() => {
-                  setGameView('map');
+                  const village = gameVillages.find((item) => item.id === initialGameVillageId) ?? gameVillages[0];
+                  setSelectedGameVillageId(village.id);
+                  setSelectedGameMissionId(village.missions[0].id);
+                  setGameView('mission');
                   setGameAnswerStatus('');
                 }}
               >
@@ -2506,6 +2564,59 @@ export function SurveyApp() {
               >
                 <Text style={styles.gameMainSecondaryButtonText}>포인트 사용하기</Text>
               </Pressable>
+
+              <View style={styles.villageIntroSection}>
+                <Text style={styles.sectionTitle}>마을 소개</Text>
+                <Text style={styles.villageIntroLead}>마을마다 어울리는 직업군과 성장 활동이 달라요.</Text>
+                {gameVillages.map((village) => (
+                  <View key={village.id} style={[styles.villageIntroCard, { borderColor: village.color }]}>
+                    <View style={styles.villageIntroHeader}>
+                      <View style={[styles.villageIntroIconBox, { backgroundColor: village.softColor }]}>
+                        <Text style={styles.villageIntroIcon}>{village.icon}</Text>
+                      </View>
+                      <View style={styles.villageIntroTitleWrap}>
+                        <Text style={[styles.villageIntroTitle, { color: village.color }]}>{village.title}</Text>
+                        <Text style={styles.villageIntroTheme}>{village.theme}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.villageIntroLabel}>직업군</Text>
+                    <Text style={styles.villageIntroText}>{village.careerGroup}</Text>
+                    <Text style={styles.villageIntroLabel}>성향</Text>
+                    <Text style={styles.villageIntroText}>{village.personality}</Text>
+                    <Text style={styles.villageIntroLabel}>추천 성장 활동</Text>
+                    <View style={styles.villageIntroChipList}>
+                      {village.growthActivities.map((activity) => (
+                        <View key={activity} style={[styles.villageIntroChip, { backgroundColor: village.softColor }]}>
+                          <Text style={[styles.villageIntroChipText, { color: village.color }]}>{activity}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Text style={styles.villageIntroLabel}>로드맵</Text>
+                    <View style={styles.villageRoadmapRow}>
+                      {village.roadmap.map((step, index) => (
+                        <View key={step} style={styles.villageRoadmapStep}>
+                          <Text style={[styles.villageRoadmapNumber, { backgroundColor: village.color }]}>
+                            {index + 1}
+                          </Text>
+                          <Text style={styles.villageRoadmapText}>{step}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.villageIntroButton,
+                        { backgroundColor: village.color },
+                        pressed && styles.pressed,
+                      ]}
+                      android_ripple={{ color: '#0000002E' }}
+                      accessibilityRole="button"
+                      onPress={() => openGameVillage(village)}
+                    >
+                      <Text style={styles.villageIntroButtonText}>{village.title} 미션 시작</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
               <Pressable
                 style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}
                 android_ripple={{ color: '#1F2A4424' }}
@@ -2551,6 +2662,7 @@ export function SurveyApp() {
                 </Pressable>
                 {gameVillages.map((village) => {
                   const selected = gameView === 'mission' && selectedGameVillage.id === village.id;
+                  const unlocked = unlockedGameVillageIds.has(village.id);
                   return (
                     <Pressable
                       key={village.id}
@@ -2563,14 +2675,17 @@ export function SurveyApp() {
                           borderColor: selected ? village.color : '#FFFFFF',
                         },
                         selected && styles.villageNodeSelected,
-                        pressed && styles.pressed,
+                        !unlocked && styles.villageNodeLocked,
+                        pressed && unlocked && styles.pressed,
                       ]}
                       android_ripple={{ color: '#1F2A4424' }}
                       accessibilityRole="button"
+                      accessibilityState={{ disabled: !unlocked, selected }}
                       onPress={() => openGameVillage(village)}
                     >
-                      <Text style={styles.villageIcon}>{village.icon}</Text>
-                      <Text style={[styles.villageName, { color: village.color }]}>{village.title}</Text>
+                      <Text style={styles.villageIcon}>{unlocked ? village.icon : '🔒'}</Text>
+                      <Text style={[styles.villageName, { color: unlocked ? village.color : '#7A8795' }]}>{village.title}</Text>
+                      {!unlocked && <Text style={styles.villageLockText}>잠김</Text>}
                     </Pressable>
                   );
                 })}
@@ -2833,8 +2948,12 @@ export function SurveyApp() {
             <Text style={styles.resultTitle}>당신은 {resultProfile.title}입니다.</Text>
             <Text style={styles.resultSubtitle}>{resultProfile.nickname}</Text>
             <View style={styles.imageBox}>
-              <Text style={styles.imageIcon}>{resultProfile.icon}</Text>
-              <Text style={styles.imageCaption}>{resultProfile.imageCaption}</Text>
+              {resultCareerJobs[resultProfile.type].map((job) => (
+                <View key={job.name} style={[styles.resultCareerCard, { borderColor: resultProfile.color }]}>
+                  <Image source={job.image} style={styles.resultCareerImage} resizeMode="contain" />
+                  <Text style={[styles.resultCareerName, { color: resultProfile.color }]}>{job.name}</Text>
+                </View>
+              ))}
             </View>
           </View>
 
