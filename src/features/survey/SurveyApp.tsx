@@ -994,6 +994,7 @@ export function SurveyApp() {
     selectedGameMissionId,
     gameView,
     completedGameMissions,
+    gameMissionSubmissions,
     spentRewardPoints,
     rewardEntries,
   });
@@ -1040,6 +1041,10 @@ export function SurveyApp() {
     setSelectedGameMissionId(gameVillages[0].missions[0].id);
     setGameView('main');
     setCompletedGameMissions({});
+    setGameMissionSubmissions({});
+    setGameProofText('');
+    setGameReflectionText('');
+    setSelectedStoreCategory('building');
     setGameAnswerStatus('');
     setSpentRewardPoints(0);
     setRewardEntries({});
@@ -1078,6 +1083,7 @@ export function SurveyApp() {
     setSelectedGameMissionId(savedState.selectedGameMissionId || gameVillages[0].missions[0].id);
     setGameView(savedState.gameView ?? 'main');
     setCompletedGameMissions(savedState.completedGameMissions ?? {});
+    setGameMissionSubmissions(savedState.gameMissionSubmissions ?? {});
     setSpentRewardPoints(savedState.spentRewardPoints ?? 0);
     setRewardEntries(savedState.rewardEntries ?? {});
     setActivityLoaded(true);
@@ -1476,33 +1482,58 @@ export function SurveyApp() {
 
     setSelectedGameVillageId(village.id);
     setSelectedGameMissionId(village.missions[0].id);
+    setGameProofText(gameMissionSubmissions[village.missions[0].id]?.photoText ?? '');
+    setGameReflectionText(gameMissionSubmissions[village.missions[0].id]?.reflection ?? '');
     setGameView('mission');
-    setGameAnswerStatus(`${village.npc} NPC가 미션을 준비했어요.`);
+    setGameAnswerStatus(`${village.title}로 이동 중... 당신의 꿈을 위해 여정을 시작합니다!`);
   };
 
   const selectGameMission = (mission: GameMission) => {
+    const previousMission = selectedGameVillage.missions.find((item) => item.step === mission.step - 1);
+    const locked = mission.step > 1 && (!previousMission || !completedGameMissions[previousMission.id]);
+
+    if (locked) {
+      setGameAnswerStatus('이전 Step을 완료하면 다음 미션 에너지가 열립니다.');
+      return;
+    }
+
     setSelectedGameMissionId(mission.id);
+    setGameProofText(gameMissionSubmissions[mission.id]?.photoText ?? '');
+    setGameReflectionText(gameMissionSubmissions[mission.id]?.reflection ?? '');
     setGameAnswerStatus(completedGameMissions[mission.id] ? '이미 완료한 미션입니다.' : '');
   };
 
-  const completeGameMission = (choiceIndex: number) => {
+  const completeGameMission = () => {
     if (!selectedGameMission || completedGameMissions[selectedGameMission.id]) {
       return;
     }
 
-    if (choiceIndex !== selectedGameMission.answerIndex) {
-      setGameAnswerStatus('다시 생각해보세요. NPC의 설명을 읽고 가장 알맞은 선택지를 고르세요.');
+    const proofText = gameProofText.trim();
+    const reflection = gameReflectionText.trim();
+
+    if (!proofText || reflection.length < 5) {
+      setGameAnswerStatus('사진 설명/파일명과 한 줄 소감을 입력하면 미션을 완료할 수 있어요.');
       return;
     }
+
+    const earnedPoints = selectedGameRewardPoints;
 
     setCompletedGameMissions({
       ...completedGameMissions,
       [selectedGameMission.id]: true,
     });
-    setGameAnswerStatus(
-      `${selectedGameMission.reward.stat}, 경험치 +${selectedGameMission.reward.exp}, 포인트 +${selectedGameMission.reward.points}`,
-    );
-    showPointPopup(selectedGameMission.reward.points);
+    setGameMissionSubmissions({
+      ...gameMissionSubmissions,
+      [selectedGameMission.id]: {
+        missionId: selectedGameMission.id,
+        photoText: proofText,
+        reflection,
+        earnedPoints,
+        completedAt: new Date().toISOString().slice(0, 10),
+      },
+    });
+    setGameAnswerStatus(`${selectedGameMission.stat} 충전 완료! +${earnedPoints}P`);
+    showPointPopup(earnedPoints);
   };
 
   const enterGame = () => {
@@ -1531,7 +1562,7 @@ export function SurveyApp() {
       ...rewardEntries,
       [reward.id]: true,
     });
-    setGameAnswerStatus(`${reward.title} 응모가 완료되었습니다.`);
+    setGameAnswerStatus(reward.confirmationText);
   };
 
   const printParentReport = () => {
@@ -2549,13 +2580,39 @@ export function SurveyApp() {
           </View>
 
           <View style={styles.pointShopHero}>
-            <Text style={styles.pointShopIcon}>🎟️</Text>
-            <Text style={styles.pointShopTitle}>모은 포인트로 체험 활동에 응모하세요</Text>
+            <Text style={styles.pointShopIcon}>🏪</Text>
+            <Text style={styles.pointShopTitle}>드림 스토어</Text>
+            <Text style={styles.pointShopText}>포인트로 원하는 상품을 구매하세요!</Text>
             <Text style={styles.pointShopText}>현재 사용 가능 포인트 {availableCareerPoints}점 · 사용한 포인트 {spentRewardPoints}점</Text>
           </View>
 
+          <View style={styles.storeTabRow}>
+            {[
+              { id: 'building', label: '내 건물 상점' },
+              { id: 'hero', label: '리얼 히어로' },
+              { id: 'gift', label: '리얼 기프트' },
+            ].map((category) => {
+              const selected = selectedStoreCategory === category.id;
+              return (
+                <Pressable
+                  key={category.id}
+                  style={({ pressed }) => [
+                    styles.storeTabButton,
+                    selected && styles.storeTabButtonActive,
+                    pressed && styles.pressed,
+                  ]}
+                  android_ripple={{ color: '#1F2A4424' }}
+                  accessibilityRole="button"
+                  onPress={() => setSelectedStoreCategory(category.id as RewardItem['category'])}
+                >
+                  <Text style={[styles.storeTabText, selected && styles.storeTabTextActive]}>{category.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
           <View style={styles.rewardList}>
-            {gameRewards.map((reward) => {
+            {selectedStoreRewards.map((reward) => {
               const applied = Boolean(rewardEntries[reward.id]);
               const disabled = applied || availableCareerPoints < reward.cost;
               return (
@@ -2578,7 +2635,7 @@ export function SurveyApp() {
                     disabled={disabled}
                     onPress={() => applyReward(reward)}
                   >
-                    <Text style={styles.primaryButtonText}>{applied ? '응모완료' : '응모하기'}</Text>
+                    <Text style={styles.primaryButtonText}>{applied ? '구매완료' : '구매하기'}</Text>
                   </Pressable>
                 </View>
               );
@@ -2594,13 +2651,16 @@ export function SurveyApp() {
           {gameView === 'main' && (
             <>
               <View style={styles.gameMainHero}>
-                <Text style={styles.gameMainIcon}>🎮</Text>
-                <Text style={styles.gameTitle}>진로월드</Text>
-                <Text style={styles.gameSubtitle}>Lv.{gameLevel} 꿈 탐험가 · EXP {currentLevelExp} / 100</Text>
+                <Text style={styles.gameMainIcon}>🛡️</Text>
+                <Text style={styles.gameTitle}>드림 가디언즈</Text>
+                <Text style={styles.gameSubtitle}>위기에 빠진 드림월드를 구해줘!</Text>
+                <Text style={styles.gameStoryText}>
+                  평화롭던 진로의 세계 드림월드의 에너지가 시들어 가고 있어요. 성향 테스트로 발견한 너의 속성으로 마을을 구해주세요.
+                </Text>
                 <View style={styles.gamePointPanel}>
-                  <Text style={styles.gamePointLabel}>현재 포인트</Text>
+                  <Text style={styles.gamePointLabel}>Lv.{gameLevel} 드림 가디언 · EXP {currentLevelExp} / 100</Text>
                   <Text style={styles.gamePointValue}>{availableCareerPoints}P</Text>
-                  <Text style={styles.gamePointText}>완료 미션 {completedGameMissionCount}개 · 사용한 포인트 {spentRewardPoints}P</Text>
+                  <Text style={styles.gamePointText}>완료 미션 {completedGameMissionCount}개 · 구출 완료 마을 {gameBadges.length}개 · 사용한 포인트 {spentRewardPoints}P</Text>
                 </View>
               </View>
 
@@ -2626,7 +2686,7 @@ export function SurveyApp() {
                 accessibilityRole="button"
                 onPress={() => setScreen('pointShop')}
               >
-                <Text style={styles.gameMainSecondaryButtonText}>포인트 사용하기</Text>
+                <Text style={styles.gameMainSecondaryButtonText}>드림 스토어</Text>
               </Pressable>
 
               <View style={styles.villageIntroSection}>
@@ -2764,8 +2824,22 @@ export function SurveyApp() {
               <View style={[styles.npcPanel, { borderColor: selectedGameVillage.color }]}>
                 <Text style={styles.npcIcon}>{selectedGameVillage.icon}</Text>
                 <View style={styles.npcTextWrap}>
-                  <Text style={[styles.npcName, { color: selectedGameVillage.color }]}>{selectedGameVillage.npc}</Text>
-                  <Text style={styles.npcText}>{selectedGameVillage.title}의 {selectedGameVillage.theme} 미션</Text>
+                  <Text style={[styles.npcName, { color: selectedGameVillage.color }]}>{selectedGameVillage.title} 가디언 여정</Text>
+                  <Text style={styles.npcText}>
+                    {selectedGameVillage.npc} NPC: 3개의 미션 에너지를 채우면 {selectedGameVillage.title}을 구할 수 있어요!
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.energyPanel}>
+                <View style={styles.energyTopLine}>
+                  <Text style={styles.energyTitle}>미션 에너지 {selectedGameCompletedCount}/3</Text>
+                  <Text style={[styles.energyReward, { color: selectedGameVillage.color }]}>
+                    Step당 {selectedGameRewardPoints}P
+                  </Text>
+                </View>
+                <View style={styles.energyTrack}>
+                  <View style={[styles.energyFill, { width: `${selectedGameEnergyPercent}%`, backgroundColor: selectedGameVillage.color }]} />
                 </View>
               </View>
 
@@ -2773,24 +2847,28 @@ export function SurveyApp() {
                 {selectedGameVillage.missions.map((mission) => {
                   const selected = selectedGameMission.id === mission.id;
                   const completed = Boolean(completedGameMissions[mission.id]);
+                  const previousMission = selectedGameVillage.missions.find((item) => item.step === mission.step - 1);
+                  const locked = mission.step > 1 && (!previousMission || !completedGameMissions[previousMission.id]);
                   return (
                     <Pressable
                       key={mission.id}
                       style={({ pressed }) => [
                         styles.gameMissionCard,
                         selected && { borderColor: selectedGameVillage.color, backgroundColor: selectedGameVillage.softColor },
-                        pressed && styles.pressed,
+                        locked && styles.gameMissionCardLocked,
+                        pressed && !locked && styles.pressed,
                       ]}
                       android_ripple={{ color: '#1F2A4424' }}
                       accessibilityRole="button"
+                      accessibilityState={{ disabled: locked, selected }}
                       onPress={() => selectGameMission(mission)}
                     >
                       <Text style={[styles.gameMissionKind, { color: selectedGameVillage.color }]}>
-                        {mission.kind === 'real' ? '실제 활동' : '게임 미션'}
+                        {locked ? '잠김' : completed ? '완료' : `Step ${mission.step}`}
                       </Text>
                       <Text style={styles.gameMissionTitle}>{mission.title}</Text>
                       <Text style={styles.gameMissionReward}>
-                        EXP +{mission.reward.exp} · {mission.reward.points}P · {completed ? '완료' : '대기'}
+                        {mission.stat} · {completed ? '구출 진행 완료' : `${selectedGameRewardPoints}P 보상`}
                       </Text>
                     </Pressable>
                   );
@@ -2801,27 +2879,85 @@ export function SurveyApp() {
                 <Text style={styles.sectionTitle}>{selectedGameMission.title}</Text>
                 <Text style={styles.bodyText}>{selectedGameMission.prompt}</Text>
                 <Text style={styles.gameRewardNotice}>
-                  보상: {selectedGameMission.reward.stat}, 경험치 +{selectedGameMission.reward.exp}, 포인트 +{selectedGameMission.reward.points}
+                  보상: {selectedGameMission.stat}, 포인트 +{selectedGameRewardPoints}
                 </Text>
-                {selectedGameMission.choices.map((choice, index) => (
-                  <Pressable
-                    key={choice}
-                    style={({ pressed }) => [
-                      styles.gameChoiceButton,
-                      completedGameMissions[selectedGameMission.id] && index === selectedGameMission.answerIndex && {
-                        borderColor: selectedGameVillage.color,
-                        backgroundColor: selectedGameVillage.softColor,
-                      },
-                      pressed && !completedGameMissions[selectedGameMission.id] && styles.pressed,
-                    ]}
-                    android_ripple={{ color: '#1F2A4424' }}
-                    accessibilityRole="button"
-                    disabled={Boolean(completedGameMissions[selectedGameMission.id])}
-                    onPress={() => completeGameMission(index)}
-                  >
-                    <Text style={styles.gameChoiceText}>{choice}</Text>
-                  </Pressable>
-                ))}
+                <View style={styles.checklistPanel}>
+                  <Text style={styles.checklistTitle}>출발 전 체크리스트</Text>
+                  {selectedGameMission.checklist.map((item) => (
+                    <Text key={item} style={styles.checklistItem}>✓ {item}</Text>
+                  ))}
+                </View>
+
+                <Text style={styles.diaryLabel}>사진 파일명 또는 사진 설명</Text>
+                <TextInput
+                  style={styles.diaryInput}
+                  placeholder={selectedGameMission.proofHint}
+                  placeholderTextColor="#8A9AAF"
+                  value={gameProofText}
+                  onChangeText={setGameProofText}
+                  editable={!completedGameMissions[selectedGameMission.id]}
+                />
+                <Text style={styles.diaryLabel}>한 줄 소감</Text>
+                <TextInput
+                  style={[styles.diaryInput, styles.diaryContentInput]}
+                  placeholder="활동하며 느낀 점을 한 줄 이상 적어주세요."
+                  placeholderTextColor="#8A9AAF"
+                  value={gameReflectionText}
+                  onChangeText={setGameReflectionText}
+                  multiline
+                  editable={!completedGameMissions[selectedGameMission.id]}
+                />
+                {selectedGameSubmission && (
+                  <View style={styles.guardianRecordBox}>
+                    <Text style={styles.guardianRecordTitle}>다른 가디언들의 활동 기록</Text>
+                    <Text style={styles.guardianRecordText}>사진 기록: {selectedGameSubmission.photoText}</Text>
+                    <Text style={styles.guardianRecordText}>소감: {selectedGameSubmission.reflection}</Text>
+                  </View>
+                )}
+                {selectedGameCompletedCount >= selectedGameVillage.missions.length && (
+                  <View style={[styles.villageRescuePanel, { borderColor: selectedGameVillage.color }]}>
+                    <Text style={[styles.villageRescueTitle, { color: selectedGameVillage.color }]}>
+                      {selectedGameVillage.title} 구출 완료!
+                    </Text>
+                    <Text style={styles.villageRescueText}>드림월드를 위한 활동을 더 시작해보세요!</Text>
+                    <View style={styles.villageRescueActions}>
+                      <Pressable
+                        style={({ pressed }) => [styles.villageRescueButton, { backgroundColor: selectedGameVillage.color }, pressed && styles.pressed]}
+                        android_ripple={{ color: '#0000002E' }}
+                        accessibilityRole="button"
+                        onPress={() => setScreen('pointShop')}
+                      >
+                        <Text style={styles.primaryButtonText}>보상 확인하기</Text>
+                      </Pressable>
+                      <Pressable
+                        style={({ pressed }) => [styles.villageRescueButton, styles.villageRescueSecondaryButton, pressed && styles.pressed]}
+                        android_ripple={{ color: '#1F2A4424' }}
+                        accessibilityRole="button"
+                        onPress={() => {
+                          setExperienceEntrySource('home');
+                          setScreen('experience');
+                        }}
+                      >
+                        <Text style={styles.villageRescueSecondaryText}>보너스 진로 퀘스트</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.rewardApplyButton,
+                    completedGameMissions[selectedGameMission.id] && styles.disabledButton,
+                    pressed && !completedGameMissions[selectedGameMission.id] && styles.pressed,
+                  ]}
+                  android_ripple={{ color: '#0000002E' }}
+                  accessibilityRole="button"
+                  disabled={Boolean(completedGameMissions[selectedGameMission.id])}
+                  onPress={completeGameMission}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {completedGameMissions[selectedGameMission.id] ? '미션 완료' : '인증하고 에너지 충전'}
+                  </Text>
+                </Pressable>
                 {gameAnswerStatus ? <Text style={styles.gameStatusText}>{gameAnswerStatus}</Text> : null}
               </View>
             </>
