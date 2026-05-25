@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 
 import { answerOptions, careerTypes, experienceMissions, maxTypeScore, profiles, questions, seoulCareerActivities } from './data';
@@ -739,6 +739,8 @@ function KakaoActivityMap({ activities }: { activities: SeoulCareerActivity[] })
 }
 
 export function SurveyApp() {
+  const { width } = useWindowDimensions();
+  const isCompactHome = width < 720;
   const [screen, setScreen] = useState<SurveyScreen>('home');
   const [currentAccount, setCurrentAccount] = useState<ActiveAccount | null>(null);
   const [loginMode, setLoginMode] = useState<'login' | 'signup'>('login');
@@ -1780,7 +1782,7 @@ export function SurveyApp() {
               </View>
             </View>
 
-            <View style={styles.heroMain}>
+            <View style={[styles.heroMain, isCompactHome && styles.heroMainCompact]}>
               <View style={styles.heroContent}>
                 <View style={styles.heroImage}>
                   <Text style={styles.heroIcon}>🧭</Text>
@@ -1814,15 +1816,21 @@ export function SurveyApp() {
               </View>
 
               <Pressable
-                style={({ pressed }) => [styles.gameHomeButton, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.gameHomeButton,
+                  isCompactHome && styles.gameHomeButtonCompact,
+                  pressed && styles.pressed,
+                ]}
                 android_ripple={{ color: '#0000002E' }}
                 accessibilityRole="button"
                 onPress={enterGame}
               >
-                <Text style={styles.gameHomeIcon}>🎮</Text>
+                <Text style={[styles.gameHomeIcon, isCompactHome && styles.gameHomeIconCompact]}>🎮</Text>
                 <View style={styles.gameHomeTextWrap}>
-                  <Text style={styles.gameHomeTitle}>진로월드</Text>
-                  <Text style={styles.gameHomeText}>마을 NPC 미션으로 포인트를 더 빠르게 모아요</Text>
+                  <Text style={[styles.gameHomeTitle, isCompactHome && styles.gameHomeTitleCompact]}>드림월드</Text>
+                  <Text style={[styles.gameHomeText, isCompactHome && styles.gameHomeTextCompact]}>
+                    마을 NPC 미션으로 포인트를 더 빠르게 모아요
+                  </Text>
                 </View>
               </Pressable>
             </View>
@@ -2764,7 +2772,7 @@ export function SurveyApp() {
                     setGameAnswerStatus('');
                   }}
                 >
-                  <Text style={styles.backButtonText}>진로월드 메인으로</Text>
+                  <Text style={styles.backButtonText}>드림월드 메인으로</Text>
                 </Pressable>
                 <View style={styles.gameWorldPointBox}>
                   <Text style={styles.gameWorldPointText}>현재 포인트 {availableCareerPoints}P</Text>
