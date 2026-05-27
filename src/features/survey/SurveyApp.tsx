@@ -138,6 +138,8 @@ const artisticFashionDesignerImage = require('../../../assets/career-results/art
 const socialCounselorImage = require('../../../assets/career-results/social-counselor.png');
 const socialTeacherImage = require('../../../assets/career-results/social-teacher.png');
 
+const initialUnlockedGameVillageIds: GameVillageId[] = ['research', 'creation', 'communication'];
+
 const resultCareerJobs: Record<CareerType, { name: string; image: ImageSourcePropType }[]> = {
   investigative: [
     { name: 'AI 연구원', image: investigativeAiResearcherImage },
@@ -802,9 +804,11 @@ export function SurveyApp() {
   const [gameReflectionText, setGameReflectionText] = useState('');
   const [selectedStoreCategory, setSelectedStoreCategory] = useState<RewardItem['category']>('building');
   const [gameAnswerStatus, setGameAnswerStatus] = useState('');
+  const [movingGameVillage, setMovingGameVillage] = useState<GameVillage | null>(null);
   const [spentRewardPoints, setSpentRewardPoints] = useState(0);
   const [rewardEntries, setRewardEntries] = useState<Record<string, boolean>>({});
   const pointPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gameVillageMoveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activityMapScrollRef = useRef<ScrollView | null>(null);
 
   const currentQuestion = questions[currentIndex];
@@ -881,9 +885,16 @@ export function SurveyApp() {
   const currentLevelExp = gameExp % 100;
   const totalCareerPoints = growthPoints + totalExperienceXp + gamePoints;
   const availableCareerPoints = Math.max(totalCareerPoints - spentRewardPoints, 0);
+  const initialGameVillagesCompleted = gameVillages
+    .filter((village) => initialUnlockedGameVillageIds.includes(village.id))
+    .every((village) => village.missions.every((mission) => completedGameMissions[mission.id]));
   const unlockedGameVillageIds = useMemo(() => {
-    return new Set<GameVillageId>(gameVillages.map((village) => village.id));
-  }, []);
+    if (initialGameVillagesCompleted) {
+      return new Set<GameVillageId>(gameVillages.map((village) => village.id));
+    }
+
+    return new Set<GameVillageId>(initialUnlockedGameVillageIds);
+  }, [initialGameVillagesCompleted]);
   const selectedGameVillage = gameVillages.find((village) => village.id === selectedGameVillageId) ?? gameVillages[0];
   const selectedGameMission =
     selectedGameVillage.missions.find((mission) => mission.id === selectedGameMissionId) ?? selectedGameVillage.missions[0];
@@ -1477,17 +1488,28 @@ export function SurveyApp() {
 
   const openGameVillage = (village: GameVillage) => {
     if (!unlockedGameVillageIds.has(village.id)) {
-      setGameAnswerStatus('검사 결과에 맞는 마을만 먼저 열려요.');
+      setGameAnswerStatus('탐구마을, 예술마을, 소통마을의 모든 미션을 완료하면 열려요.');
       setGameView('map');
       return;
     }
 
-    setSelectedGameVillageId(village.id);
-    setSelectedGameMissionId(village.missions[0].id);
-    setGameProofText(gameMissionSubmissions[village.missions[0].id]?.photoText ?? '');
-    setGameReflectionText(gameMissionSubmissions[village.missions[0].id]?.reflection ?? '');
-    setGameView('mission');
-    setGameAnswerStatus(`${village.title}로 이동 중... 당신의 꿈을 위해 여정을 시작합니다!`);
+    if (gameVillageMoveTimerRef.current) {
+      clearTimeout(gameVillageMoveTimerRef.current);
+    }
+
+    setGameAnswerStatus('');
+    setMovingGameVillage(village);
+    setGameView('map');
+
+    gameVillageMoveTimerRef.current = setTimeout(() => {
+      setSelectedGameVillageId(village.id);
+      setSelectedGameMissionId(village.missions[0].id);
+      setGameProofText(gameMissionSubmissions[village.missions[0].id]?.photoText ?? '');
+      setGameReflectionText(gameMissionSubmissions[village.missions[0].id]?.reflection ?? '');
+      setMovingGameVillage(null);
+      setGameView('mission');
+      gameVillageMoveTimerRef.current = null;
+    }, 3000);
   };
 
   const selectGameMission = (mission: GameMission) => {
@@ -1542,6 +1564,11 @@ export function SurveyApp() {
     const villageId = hasSurveyResult ? getInitialVillageId(surveyResultType) : selectedGameVillageId;
     const village = gameVillages.find((item) => item.id === villageId) ?? gameVillages[0];
 
+    if (gameVillageMoveTimerRef.current) {
+      clearTimeout(gameVillageMoveTimerRef.current);
+      gameVillageMoveTimerRef.current = null;
+    }
+    setMovingGameVillage(null);
     setSelectedGameVillageId(village.id);
     setSelectedGameMissionId(village.missions[0].id);
     setGameView('main');
@@ -1658,9 +1685,25 @@ export function SurveyApp() {
   }, [hasSurveyResult, surveyResultType]);
 
   useEffect(() => {
+    if (gameView !== 'mission' || unlockedGameVillageIds.has(selectedGameVillageId)) {
+      return;
+    }
+
+    const fallbackVillage = gameVillages[0];
+    setSelectedGameVillageId(fallbackVillage.id);
+    setSelectedGameMissionId(fallbackVillage.missions[0].id);
+    setMovingGameVillage(null);
+    setGameView('map');
+    setGameAnswerStatus('탐구마을, 예술마을, 소통마을의 모든 미션을 완료하면 열려요.');
+  }, [gameView, selectedGameVillageId, unlockedGameVillageIds]);
+
+  useEffect(() => {
     return () => {
       if (pointPopupTimerRef.current) {
         clearTimeout(pointPopupTimerRef.current);
+      }
+      if (gameVillageMoveTimerRef.current) {
+        clearTimeout(gameVillageMoveTimerRef.current);
       }
     };
   }, []);
@@ -2678,10 +2721,12 @@ export function SurveyApp() {
                 accessibilityRole="button"
                 accessibilityLabel="홈으로 이동하기"
                 onPress={() => {
-                  const village = gameVillages.find((item) => item.id === initialGameVillageId) ?? gameVillages[0];
-                  setSelectedGameVillageId(village.id);
-                  setSelectedGameMissionId(village.missions[0].id);
-                  setGameView('mission');
+                  if (gameVillageMoveTimerRef.current) {
+                    clearTimeout(gameVillageMoveTimerRef.current);
+                    gameVillageMoveTimerRef.current = null;
+                  }
+                  setMovingGameVillage(null);
+                  setGameView('map');
                   setGameAnswerStatus('');
                 }}
               >
@@ -2700,54 +2745,61 @@ export function SurveyApp() {
               <View style={styles.villageIntroSection}>
                 <Text style={styles.sectionTitle}>마을 소개</Text>
                 <Text style={styles.villageIntroLead}>마을마다 어울리는 직업군과 성장 활동이 달라요.</Text>
-                {gameVillages.map((village) => (
-                  <View key={village.id} style={[styles.villageIntroCard, { borderColor: village.color }]}>
-                    <View style={styles.villageIntroHeader}>
-                      <View style={[styles.villageIntroIconBox, { backgroundColor: village.softColor }]}>
-                        <Text style={styles.villageIntroIcon}>{village.icon}</Text>
-                      </View>
-                      <View style={styles.villageIntroTitleWrap}>
-                        <Text style={[styles.villageIntroTitle, { color: village.color }]}>{village.title}</Text>
-                        <Text style={styles.villageIntroTheme}>{village.theme}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.villageIntroLabel}>직업군</Text>
-                    <Text style={styles.villageIntroText}>{village.careerGroup}</Text>
-                    <Text style={styles.villageIntroLabel}>성향</Text>
-                    <Text style={styles.villageIntroText}>{village.personality}</Text>
-                    <Text style={styles.villageIntroLabel}>추천 성장 활동</Text>
-                    <View style={styles.villageIntroChipList}>
-                      {village.growthActivities.map((activity) => (
-                        <View key={activity} style={[styles.villageIntroChip, { backgroundColor: village.softColor }]}>
-                          <Text style={[styles.villageIntroChipText, { color: village.color }]}>{activity}</Text>
+                {gameVillages.map((village) => {
+                  const unlocked = unlockedGameVillageIds.has(village.id);
+                  return (
+                    <View key={village.id} style={[styles.villageIntroCard, { borderColor: village.color }, !unlocked && styles.villageIntroCardLocked]}>
+                      <View style={styles.villageIntroHeader}>
+                        <View style={[styles.villageIntroIconBox, { backgroundColor: village.softColor }]}>
+                          <Text style={styles.villageIntroIcon}>{unlocked ? village.icon : '🔒'}</Text>
                         </View>
-                      ))}
-                    </View>
-                    <Text style={styles.villageIntroLabel}>로드맵</Text>
-                    <View style={styles.villageRoadmapRow}>
-                      {village.roadmap.map((step, index) => (
-                        <View key={step} style={styles.villageRoadmapStep}>
-                          <Text style={[styles.villageRoadmapNumber, { backgroundColor: village.color }]}>
-                            {index + 1}
+                        <View style={styles.villageIntroTitleWrap}>
+                          <Text style={[styles.villageIntroTitle, { color: village.color }]}>{village.title}</Text>
+                          <Text style={styles.villageIntroTheme}>
+                            {unlocked ? village.theme : '탐구·예술·소통마을 미션 완료 후 열림'}
                           </Text>
-                          <Text style={styles.villageRoadmapText}>{step}</Text>
                         </View>
-                      ))}
+                      </View>
+                      <Text style={styles.villageIntroLabel}>직업군</Text>
+                      <Text style={styles.villageIntroText}>{village.careerGroup}</Text>
+                      <Text style={styles.villageIntroLabel}>성향</Text>
+                      <Text style={styles.villageIntroText}>{village.personality}</Text>
+                      <Text style={styles.villageIntroLabel}>추천 성장 활동</Text>
+                      <View style={styles.villageIntroChipList}>
+                        {village.growthActivities.map((activity) => (
+                          <View key={activity} style={[styles.villageIntroChip, { backgroundColor: village.softColor }]}>
+                            <Text style={[styles.villageIntroChipText, { color: village.color }]}>{activity}</Text>
+                          </View>
+                        ))}
+                      </View>
+                      <Text style={styles.villageIntroLabel}>로드맵</Text>
+                      <View style={styles.villageRoadmapRow}>
+                        {village.roadmap.map((step, index) => (
+                          <View key={step} style={styles.villageRoadmapStep}>
+                            <Text style={[styles.villageRoadmapNumber, { backgroundColor: village.color }]}>
+                              {index + 1}
+                            </Text>
+                            <Text style={styles.villageRoadmapText}>{step}</Text>
+                          </View>
+                        ))}
+                      </View>
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.villageIntroButton,
+                          { backgroundColor: village.color },
+                          !unlocked && styles.disabledButton,
+                          pressed && styles.pressed,
+                        ]}
+                        android_ripple={{ color: '#0000002E' }}
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: !unlocked }}
+                        onPress={() => openGameVillage(village)}
+                      >
+                        <Text style={styles.villageIntroButtonText}>{unlocked ? `${village.title} 미션 시작` : '잠금 해제 필요'}</Text>
+                      </Pressable>
                     </View>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.villageIntroButton,
-                        { backgroundColor: village.color },
-                        pressed && styles.pressed,
-                      ]}
-                      android_ripple={{ color: '#0000002E' }}
-                      accessibilityRole="button"
-                      onPress={() => openGameVillage(village)}
-                    >
-                      <Text style={styles.villageIntroButtonText}>{village.title} 미션 시작</Text>
-                    </Pressable>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
               <Pressable
                 style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}
@@ -2760,7 +2812,7 @@ export function SurveyApp() {
             </>
           )}
 
-          {gameView !== 'main' && (
+          {gameView === 'map' && (
             <>
               <View style={styles.gameWorldHeader}>
                 <Pressable
@@ -2768,6 +2820,11 @@ export function SurveyApp() {
                   android_ripple={{ color: '#1F2A4428' }}
                   accessibilityRole="button"
                   onPress={() => {
+                    if (gameVillageMoveTimerRef.current) {
+                      clearTimeout(gameVillageMoveTimerRef.current);
+                      gameVillageMoveTimerRef.current = null;
+                    }
+                    setMovingGameVillage(null);
                     setGameView('main');
                     setGameAnswerStatus('');
                   }}
@@ -2786,6 +2843,11 @@ export function SurveyApp() {
                   android_ripple={{ color: '#1F2A4424' }}
                   accessibilityRole="button"
                   onPress={() => {
+                    if (gameVillageMoveTimerRef.current) {
+                      clearTimeout(gameVillageMoveTimerRef.current);
+                      gameVillageMoveTimerRef.current = null;
+                    }
+                    setMovingGameVillage(null);
                     setGameView('main');
                     setGameAnswerStatus('');
                   }}
@@ -2793,7 +2855,7 @@ export function SurveyApp() {
                   <Text style={styles.mapHomeText}>홈</Text>
                 </Pressable>
                 {gameVillages.map((village) => {
-                  const selected = gameView === 'mission' && selectedGameVillage.id === village.id;
+                  const selected = selectedGameVillage.id === village.id;
                   const unlocked = unlockedGameVillageIds.has(village.id);
                   return (
                     <Pressable
@@ -2808,11 +2870,12 @@ export function SurveyApp() {
                         },
                         selected && styles.villageNodeSelected,
                         !unlocked && styles.villageNodeLocked,
-                        pressed && unlocked && styles.pressed,
+                        pressed && unlocked && !movingGameVillage && styles.pressed,
                       ]}
                       android_ripple={{ color: '#1F2A4424' }}
                       accessibilityRole="button"
                       accessibilityState={{ disabled: !unlocked, selected }}
+                      disabled={Boolean(movingGameVillage)}
                       onPress={() => openGameVillage(village)}
                     >
                       <Text style={styles.villageIcon}>{unlocked ? village.icon : '🔒'}</Text>
@@ -2821,6 +2884,20 @@ export function SurveyApp() {
                     </Pressable>
                   );
                 })}
+                {movingGameVillage && (
+                  <View
+                    style={[
+                      styles.villageMovePopup,
+                      {
+                        backgroundColor: movingGameVillage.color,
+                        borderColor: movingGameVillage.softColor,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.villageMovePopupIcon}>{movingGameVillage.icon}</Text>
+                    <Text style={styles.villageMovePopupText}>{movingGameVillage.title}으로 이동중...</Text>
+                  </View>
+                )}
               </View>
 
               {gameAnswerStatus && gameView === 'map' ? <Text style={styles.gameStatusText}>{gameAnswerStatus}</Text> : null}
@@ -2829,6 +2906,24 @@ export function SurveyApp() {
 
           {gameView === 'mission' && (
             <>
+              <View style={styles.gameWorldHeader}>
+                <Pressable
+                  style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+                  android_ripple={{ color: '#1F2A4428' }}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setMovingGameVillage(null);
+                    setGameView('map');
+                    setGameAnswerStatus('');
+                  }}
+                >
+                  <Text style={styles.backButtonText}>마을 지도로</Text>
+                </Pressable>
+                <View style={styles.gameWorldPointBox}>
+                  <Text style={styles.gameWorldPointText}>현재 포인트 {availableCareerPoints}P</Text>
+                </View>
+              </View>
+
               <View style={[styles.npcPanel, { borderColor: selectedGameVillage.color }]}>
                 <Text style={styles.npcIcon}>{selectedGameVillage.icon}</Text>
                 <View style={styles.npcTextWrap}>
@@ -2838,6 +2933,9 @@ export function SurveyApp() {
                   </Text>
                 </View>
               </View>
+              <Text style={[styles.villageMissionLead, { color: selectedGameVillage.color }]}>
+                여러분의 꿈을 위해 여정을 시작해보세요!
+              </Text>
 
               <View style={styles.energyPanel}>
                 <View style={styles.energyTopLine}>
